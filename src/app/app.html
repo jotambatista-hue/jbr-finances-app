@@ -88,9 +88,13 @@
       <div class="side-group">
         <h3>Manage</h3>
         @for (item of m.manage; track item.label) {
-          <button class="side-link" type="button">
-            <app-icon [name]="item.icon" /><span>{{ item.label }}</span>
-          </button>
+          @if (item.link) {
+            <a class="side-link" [routerLink]="item.link"><app-icon [name]="item.icon" /><span>{{ item.label }}</span></a>
+          } @else {
+            <button class="side-link" type="button">
+              <app-icon [name]="item.icon" /><span>{{ item.label }}</span>
+            </button>
+          }
         }
       </div>
     }
@@ -99,9 +103,13 @@
       <div class="side-group">
         <h3>Assist</h3>
         @for (item of m.assist; track item.label) {
-          <button class="side-link" type="button">
-            <app-icon [name]="item.icon" /><span>{{ item.label }}</span>
-          </button>
+          @if (item.link) {
+            <a class="side-link" [routerLink]="item.link"><app-icon [name]="item.icon" /><span>{{ item.label }}</span></a>
+          } @else {
+            <button class="side-link" type="button">
+              <app-icon [name]="item.icon" /><span>{{ item.label }}</span>
+            </button>
+          }
         }
       </div>
     }

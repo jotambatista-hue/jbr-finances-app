@@ -1,11 +1,12 @@
 import { CurrencyPipe } from '@angular/common';
 import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FinanceDataService } from '../../core/finance-data.service';
 
 /** Form for adding a budget to the current period. Open it with `open()`. */
 @Component({
   selector: 'app-new-budget-dialog',
-  imports: [CurrencyPipe],
+  imports: [CurrencyPipe, RouterLink],
   templateUrl: './new-budget-dialog.html',
 })
 export class NewBudgetDialog {

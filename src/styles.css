@@ -824,6 +824,35 @@ a {
   color: var(--text);
 }
 
+.row-actions .link-btn + .link-btn {
+  margin-left: 14px;
+}
+
+.row-actions .link-btn {
+  white-space: nowrap;
+}
+
+.link-btn-crit {
+  color: var(--crit);
+}
+
+.child-cell {
+  padding-left: 48px !important;
+}
+
+.data-table .group-row td {
+  background: rgb(255 255 255 / 0.025);
+}
+
+.btn-danger {
+  background: var(--crit);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--crit) 85%, #fff);
+}
+
 /* ------------------------------------------------------- Card sections */
 
 .card-head {

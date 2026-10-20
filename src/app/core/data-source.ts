@@ -62,6 +62,9 @@ export abstract class DataSource {
   abstract addBudgetPeriod(row: Omit<BudgetPeriod, 'id'>): Promise<BudgetPeriod>;
   abstract addBudget(row: Omit<Budget, 'id' | 'updatedAt'>): Promise<void>;
   abstract addGoal(row: Omit<Goal, 'id'>): Promise<void>;
+  abstract addCategory(row: Omit<Category, 'id'>): Promise<void>;
+  abstract updateCategory(row: Category): Promise<void>;
+  abstract deleteCategory(id: string): Promise<void>;
 }
 
 /** Local calendar date as 'YYYY-MM-DD'. */
@@ -150,5 +153,19 @@ export class ApiDataSource extends DataSource {
 
   async addGoal(row: Omit<Goal, 'id'>) {
     await this.create('goals', row);
+  }
+
+  async addCategory(row: Omit<Category, 'id'>) {
+    await this.create('categories', row);
+  }
+
+  async updateCategory(row: Category) {
+    await firstValueFrom(this.http.put(`${this.base}/categories/${row.id}`, row));
+    this.reload('categories');
+  }
+
+  async deleteCategory(id: string) {
+    await firstValueFrom(this.http.delete(`${this.base}/categories/${id}`));
+    this.reload('categories');
   }
 }

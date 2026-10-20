@@ -1,0 +1,62 @@
+@let row = editing();
+
+<dialog #dialog class="dialog" aria-labelledby="category-title">
+  <form method="dialog" (submit)="$event.preventDefault(); save()">
+    <h2 id="category-title">{{ row ? 'Edit ' + row.name : 'New category' }}</h2>
+    <p class="dialog-lede">
+      Groups organise categories; budgets and transactions use the categories inside them.
+    </p>
+
+    <label class="form-row">
+      <span>Name</span>
+      <div class="field">
+        <input
+          type="text"
+          maxlength="100"
+          required
+          placeholder="e.g. Groceries"
+          [value]="name()"
+          (input)="name.set($any($event.target).value)"
+        />
+      </div>
+    </label>
+
+    <div class="form-cols">
+      <label class="form-row">
+        <span>Type</span>
+        <select [value]="type()" (change)="setType($any($event.target).value)">
+          <option value="expense" [selected]="type() === 'expense'">Expense</option>
+          <option value="income" [selected]="type() === 'income'">Income</option>
+        </select>
+      </label>
+
+      <label class="form-row">
+        <span>Group</span>
+        <select
+          [value]="parentId()"
+          [disabled]="!!row?.childCount"
+          (change)="parentId.set($any($event.target).value)"
+        >
+          <option value="" [selected]="!parentId()">None — this is a group</option>
+          @for (p of parents(); track p.id) {
+            <option [value]="p.id" [selected]="p.id === parentId()">{{ p.name }}</option>
+          }
+        </select>
+        @if (row?.childCount; as n) {
+          <small>Holds {{ n }} {{ n === 1 ? 'category' : 'categories' }}, so it stays a group.</small>
+        }
+      </label>
+    </div>
+
+    @if (error() ?? problem(); as message) {
+      <p class="form-error" role="alert">{{ message }}</p>
+    }
+
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" type="button" (click)="close()">Cancel</button>
+      <button class="btn btn-primary" type="submit" [disabled]="!name().trim() || !!problem() || saving()">
+        {{ row ? 'Save changes' : 'Add category' }}
+      </button>
+    </div>
+  </form>
+</dialog>

@@ -1,5 +1,6 @@
 import { CurrencyPipe, PercentPipe } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import {
   BUDGET_STATUS,
   BudgetRow,
@@ -18,7 +19,7 @@ const SORTS = [
 
 @Component({
   selector: 'app-budgets-page',
-  imports: [CurrencyPipe, PercentPipe, Icon, NewBudgetDialog],
+  imports: [CurrencyPipe, PercentPipe, RouterLink, Icon, NewBudgetDialog],
   templateUrl: './budgets-page.html',
 })
 export class BudgetsPage {
