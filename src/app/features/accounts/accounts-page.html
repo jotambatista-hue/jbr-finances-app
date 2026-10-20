@@ -43,9 +43,9 @@
   <div class="kpi">
     <span class="kpi-icon kpi-icon-warn"><app-icon name="card" /></span>
     <div>
-      <span class="kpi-label">Card balances owed</span>
+      <span class="kpi-label">Owed</span>
       <span class="kpi-value">{{ k.owed | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
-      <span class="kpi-sub">{{ k.cardCount }} cards</span>
+      <span class="kpi-sub">{{ k.debtCount }} cards &amp; loans</span>
     </div>
   </div>
 </section>
@@ -100,7 +100,7 @@
         @for (a of rows(); track a.id) {
           <tr>
             <td>
-              <span class="cell-title">{{ a.name }}</span>
+              <a class="cell-title cell-link" routerLink="/transactions" [queryParams]="{ account: a.id }">{{ a.name }}</a>
               <span class="cell-sub">{{ a.institution ?? 'No institution' }}</span>
             </td>
             <td class="muted">{{ a.typeLabel }}</td>

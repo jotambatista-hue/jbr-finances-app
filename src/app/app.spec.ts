@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { budgetStatus, FinanceDataService, goalStatus } from './core/finance-data.service';
+import { niceTicks } from './shared/chart';
 
 describe('App', () => {
   beforeEach(async () => {
@@ -20,7 +21,7 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
     const links = (fixture.nativeElement as HTMLElement).querySelectorAll('.topnav a');
-    expect(links.length).toBe(9);
+    expect(links.length).toBe(8);
   });
 });
 
@@ -89,5 +90,39 @@ describe('FinanceDataService goals', () => {
     const bills = TestBed.inject(FinanceDataService).bills();
     expect(bills.length).toBe(10);
     expect(bills.filter((b) => b.status === 'pending').length).toBe(3);
+  });
+});
+
+describe('niceTicks', () => {
+  it('produces round ticks covering the range', () => {
+    expect(niceTicks(0, 243_167)).toEqual([0, 100_000, 200_000, 300_000]);
+    expect(niceTicks(-2_900, 5_300)).toEqual([-5_000, -2_500, 0, 2_500, 5_000, 7_500]);
+  });
+});
+
+describe('FinanceDataService history', () => {
+  it('ends every investment history at the live balance', () => {
+    const data = TestBed.inject(FinanceDataService);
+    for (const { account, months } of data.investmentHistory()) {
+      expect(months.at(-1)!.balance).toBeCloseTo(account.balance, 2);
+    }
+  });
+
+  it('ends net worth history at the live balance sheet', () => {
+    const data = TestBed.inject(FinanceDataService);
+    const last = data.netWorthHistory().at(-1)!;
+    expect(last.owned - last.owed).toBeCloseTo(data.balanceSheet().netWorth, 2);
+  });
+
+  it('uses live budgets for the current month', () => {
+    const data = TestBed.inject(FinanceDataService);
+    const october = data.budgetHistory().filter((b) => b.month === '2026-10');
+    expect(october.find((b) => b.categoryId === 'cat-dining')?.actual).toBe(268.75);
+  });
+
+  it('marks which transactions came from a CSV import', () => {
+    const rows = TestBed.inject(FinanceDataService).transactions();
+    expect(rows.find((t) => t.accountId === 'acc-chk')?.source).toBe('chase_checking_2026-10.csv');
+    expect(rows.find((t) => t.accountId === 'acc-csh')?.source).toBeNull();
   });
 });

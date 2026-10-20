@@ -1,0 +1,157 @@
+@let k = kpis();
+
+<div class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Home</span><span>/</span><span>Wealth</span><span>/</span><span aria-current="page">Investments &amp; Insurance</span>
+    </nav>
+    <p class="eyebrow">Long-term holdings · {{ k.retirementCount + k.personalCount }} accounts, {{ k.policyCount }} policies</p>
+    <h1>{{ title() }}</h1>
+    <p class="lede">Retirement and personal investment balances, plus the cash value of permanent life insurance.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-ghost" type="button"><app-icon name="upload" [size]="16" /> Update balances</button>
+  </div>
+</div>
+
+<section class="kpi-grid" aria-label="Summary">
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="chart" /></span>
+    <div>
+      <span class="kpi-label">Total</span>
+      <span class="kpi-value">{{ k.total | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">investments + policy cash value</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="calendar" /></span>
+    <div>
+      <span class="kpi-label">Retirement</span>
+      <span class="kpi-value">{{ k.retirement | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.retirementCount }} accounts · IRAs &amp; 401(k)s</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="trending" /></span>
+    <div>
+      <span class="kpi-label">Personal investments</span>
+      <span class="kpi-value">{{ k.personal | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.personalCount }} taxable accounts</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-info"><app-icon name="shield" /></span>
+    <div>
+      <span class="kpi-label">Life insurance cash value</span>
+      <span class="kpi-value">{{ k.cashValue | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.policyCount }} permanent policies</span>
+    </div>
+  </div>
+</section>
+
+@if (showAccounts()) {
+  <section class="table-card section-gap" aria-labelledby="inv-accounts">
+    <div class="card-head">
+      <h2 id="inv-accounts">Investment accounts</h2>
+      <span class="muted">{{ accounts().length }} accounts</span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Account</th>
+            <th scope="col">Kind</th>
+            <th scope="col">Group</th>
+            <th scope="col" class="num">Balance</th>
+            <th scope="col">Share of investments</th>
+            <th scope="col">Balance as of</th>
+            <th scope="col">Import</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (a of accounts(); track a.id) {
+            <tr>
+              <td>
+                <span class="cell-title">{{ a.name }}</span>
+                <span class="cell-sub">{{ a.institution }}</span>
+              </td>
+              <td class="muted">{{ a.typeLabel }}</td>
+              <td class="muted">{{ groupLabel[a.group] }}</td>
+              <td class="num strong">{{ a.balance | currency: a.currency }}</td>
+              <td>
+                <div class="share">
+                  <div class="share-track"><span [style.width.%]="share(a) * 100"></span></div>
+                  <span class="meter-caption">{{ share(a) | percent: '1.0-1' }}</span>
+                </div>
+              </td>
+              <td class="muted">
+                @if (a.lastImportAt) {
+                  {{ a.lastImportAt | date: 'MMM d, y' }}
+                } @else {
+                  —
+                }
+              </td>
+              <td>
+                <span [class]="'pill pill-' + statusMeta[a.status].tone">{{ statusMeta[a.status].label }}</span>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="7" class="empty">No investment accounts in this view.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}
+
+@if (showPolicies()) {
+  <section class="table-card" aria-labelledby="inv-policies">
+    <div class="card-head">
+      <h2 id="inv-policies">Permanent life insurance</h2>
+      <span class="muted">Cash value counts toward what you own</span>
+    </div>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Policy</th>
+            <th scope="col">Type</th>
+            <th scope="col" class="num">Cash value</th>
+            <th scope="col" class="num">Death benefit</th>
+            <th scope="col" class="num">Premium</th>
+            <th scope="col">Value as of</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of policies(); track p.id) {
+            <tr>
+              <td>
+                <span class="cell-title">{{ p.name }}</span>
+                <span class="cell-sub">{{ p.provider }}</span>
+              </td>
+              <td class="muted">{{ p.kindLabel }}</td>
+              <td class="num strong">{{ p.cashValue | currency }}</td>
+              <td class="num muted">{{ p.deathBenefit | currency: 'USD' : 'symbol' : '1.0-0' }}</td>
+              <td class="num muted">{{ p.premium | currency }} / {{ p.frequency === 'monthly' ? 'mo' : p.frequency }}</td>
+              <td class="muted">{{ p.cashValueAsOf | date: 'MMM d, y' }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty">No permanent life policies yet.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (termPolicies().length) {
+      <div class="table-foot">
+        <span class="hint">
+          {{ termPolicies().length }} term {{ termPolicies().length === 1 ? 'policy is' : 'policies are' }} not
+          listed: term life has no cash value, so it isn't counted as something you own.
+        </span>
+      </div>
+    }
+  </section>
+}

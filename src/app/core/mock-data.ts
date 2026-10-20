@@ -8,6 +8,7 @@ import {
   CsvImport,
   Goal,
   GoalContribution,
+  InsurancePolicy,
   RecurringPayment,
   Transaction,
 } from './models';
@@ -18,15 +19,30 @@ import {
  */
 export const AS_OF = '2026-10-19';
 
+const account = (
+  id: string,
+  name: string,
+  type: Account['type'],
+  subtype: Account['subtype'],
+  institution: string | null,
+  balance: number,
+): Account => ({ id, name, type, subtype, institution, balance, currency: 'USD' });
+
 export const ACCOUNTS: Account[] = [
-  { id: 'acc-chk', name: 'Everyday Checking', type: 'checking', institution: 'Chase', balance: 4820.35, currency: 'USD' },
-  { id: 'acc-sav', name: 'High-Yield Savings', type: 'savings', institution: 'Ally', balance: 18250.0, currency: 'USD' },
-  { id: 'acc-emg', name: 'Emergency Fund', type: 'savings', institution: 'Marcus', balance: 12000.0, currency: 'USD' },
-  { id: 'acc-cc1', name: 'Sapphire Preferred', type: 'credit_card', institution: 'Chase', balance: -1342.18, currency: 'USD' },
-  { id: 'acc-cc2', name: 'Blue Cash Everyday', type: 'credit_card', institution: 'American Express', balance: -486.9, currency: 'USD' },
-  { id: 'acc-brk', name: 'Brokerage', type: 'investment', institution: 'Fidelity', balance: 42310.77, currency: 'USD' },
-  { id: 'acc-ira', name: 'Roth IRA', type: 'investment', institution: 'Vanguard', balance: 28904.12, currency: 'USD' },
-  { id: 'acc-csh', name: 'Wallet', type: 'cash', institution: null, balance: 180.0, currency: 'USD' },
+  account('acc-chk', 'Everyday Checking', 'checking', null, 'Chase', 4820.35),
+  account('acc-sav', 'High-Yield Savings', 'savings', null, 'Ally', 18250.0),
+  account('acc-emg', 'Emergency Fund', 'savings', null, 'Marcus', 12000.0),
+  account('acc-cc1', 'Sapphire Preferred', 'credit_card', null, 'Chase', -1342.18),
+  account('acc-cc2', 'Blue Cash Everyday', 'credit_card', null, 'American Express', -486.9),
+  account('acc-brk', 'Individual Brokerage', 'investment', 'brokerage', 'Fidelity', 42310.77),
+  account('acc-rh', 'Personal Portfolio', 'investment', 'brokerage', 'Robinhood', 3120.55),
+  account('acc-ira', 'Roth IRA', 'investment', 'roth_ira', 'Vanguard', 28904.12),
+  account('acc-rollover', 'Rollover IRA', 'investment', 'rollover_ira', 'Schwab', 15230.4),
+  account('acc-401k', 'Acme Corp 401(k)', 'investment', '401k', 'Fidelity NetBenefits', 68450.32),
+  account('acc-csh', 'Wallet', 'cash', null, null, 180.0),
+  account('acc-auto', 'Auto Loan', 'loan', 'auto', 'Toyota Financial', -14820.66),
+  account('acc-student', 'Student Loan', 'loan', 'student', 'Nelnet', -9340.12),
+  account('acc-car', 'Toyota RAV4', 'property', 'vehicle', null, 24500.0),
 ];
 
 export const CSV_IMPORTS: CsvImport[] = [
@@ -37,6 +53,9 @@ export const CSV_IMPORTS: CsvImport[] = [
   { id: 'imp-5', accountId: 'acc-cc2', filename: 'amex_2026-09.csv', importedAt: '2026-10-02T20:31:00Z', rowCount: 27, status: 'completed' },
   { id: 'imp-6', accountId: 'acc-cc2', filename: 'amex_2026-10.csv', importedAt: '2026-10-18T21:14:00Z', rowCount: 0, status: 'failed' },
   { id: 'imp-7', accountId: 'acc-brk', filename: 'fidelity_positions_2026-10.csv', importedAt: '2026-10-11T13:20:00Z', rowCount: 18, status: 'completed' },
+  { id: 'imp-9', accountId: 'acc-401k', filename: 'netbenefits_balances_2026-09.csv', importedAt: '2026-10-03T08:45:00Z', rowCount: 12, status: 'completed' },
+  { id: 'imp-10', accountId: 'acc-rollover', filename: 'schwab_positions_2026-10.csv', importedAt: '2026-10-12T17:30:00Z', rowCount: 7, status: 'completed' },
+  { id: 'imp-11', accountId: 'acc-auto', filename: 'toyota_statement_2026-10.csv', importedAt: '2026-10-10T10:00:00Z', rowCount: 1, status: 'completed' },
   { id: 'imp-8', accountId: 'acc-ira', filename: 'vanguard_2026-07.csv', importedAt: '2026-07-31T16:02:00Z', rowCount: 9, status: 'completed' },
 ];
 
@@ -107,6 +126,8 @@ export const BUDGET_ADJUSTMENTS: BudgetAdjustment[] = [
 ];
 
 let txSeq = 0;
+/** Which CSV import brought in each account's October transactions (others were entered by hand). */
+const TX_IMPORT: Record<string, string> = { 'acc-chk': 'imp-1', 'acc-cc1': 'imp-4' };
 const tx = (
   date: string,
   categoryId: string,
@@ -117,7 +138,7 @@ const tx = (
 ): Transaction => ({
   id: `tx-${++txSeq}`,
   accountId,
-  csvImportId: null,
+  csvImportId: TX_IMPORT[accountId] ?? null,
   date,
   amount,
   description,
@@ -257,4 +278,27 @@ export const GOAL_CONTRIBUTIONS: GoalContribution[] = [
   ...contributions('goal-roth', 'acc-ira', [
     ['2026-01-31', 1500], ['2026-04-30', 1500], ['2026-07-31', 1500], ['2026-09-30', 1400],
   ]),
+];
+
+export const INSURANCE_POLICIES: InsurancePolicy[] = [
+  {
+    id: 'pol-whole', name: 'Whole Life', provider: 'Northwestern Mutual', type: 'life', lifeKind: 'whole',
+    premium: 312.5, frequency: 'monthly', effectiveDate: '2014-06-01', expirationDate: null,
+    cashValue: 18420.55, cashValueAsOf: '2026-09-30', deathBenefit: 250000, recurringPaymentId: null,
+  },
+  {
+    id: 'pol-iul', name: 'Indexed Universal Life', provider: 'Pacific Life', type: 'life', lifeKind: 'indexed_universal',
+    premium: 200, frequency: 'monthly', effectiveDate: '2021-03-15', expirationDate: null,
+    cashValue: 6980.1, cashValueAsOf: '2026-09-30', deathBenefit: 500000, recurringPaymentId: null,
+  },
+  {
+    id: 'pol-term', name: '20-Year Term', provider: 'State Farm', type: 'life', lifeKind: 'term',
+    premium: 38, frequency: 'monthly', effectiveDate: '2019-01-01', expirationDate: '2039-01-01',
+    cashValue: null, cashValueAsOf: null, deathBenefit: 1000000, recurringPaymentId: null,
+  },
+  {
+    id: 'pol-auto', name: 'Auto Policy', provider: 'Geico', type: 'auto', lifeKind: null,
+    premium: 128.4, frequency: 'monthly', effectiveDate: '2026-01-25', expirationDate: '2027-01-25',
+    cashValue: null, cashValueAsOf: null, deathBenefit: null, recurringPaymentId: 'rp-car-ins',
+  },
 ];
