@@ -2,7 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs';
-import { FinanceDataService } from './core/finance-data.service';
+import { DUE_SOON_DAYS, FinanceDataService, goalViews } from './core/finance-data.service';
 import { SECTIONS } from './sections';
 import { Icon, IconName } from './shared/icon';
 
@@ -61,6 +61,10 @@ export class App {
         return this.accountsMenu();
       case 'budgets':
         return this.budgetsMenu();
+      case 'goals':
+        return this.goalsMenu();
+      case 'bills':
+        return this.billsMenu();
       default:
         return {
           eyebrow: this.section().label,
@@ -146,6 +150,69 @@ export class App {
         title: 'Period close',
         text: `${period.label} closes in ${of - day} days. ${bills} bill${bills === 1 ? '' : 's'} still pending.`,
         progress: this.data.periodProgress(),
+      },
+    };
+  }
+
+  private goalsMenu(): SideMenu {
+    const rows = this.data.goals();
+    const views = goalViews(this.data.asOf());
+    const count = (key: string) => rows.filter(views[key].match).length;
+    const steady = rows.filter((g) => ['ahead', 'on_track', 'reached'].includes(g.status)).length;
+    const ahead = rows.filter((g) => g.status === 'ahead');
+    return {
+      eyebrow: 'Goals',
+      title: 'Saving on schedule',
+      blurb: 'Each goal is measured against a steady pace from its start date to its due date.',
+      newLabel: 'New goal',
+      views: [
+        { label: 'All goals', icon: 'inbox', count: rows.length },
+        { label: 'Due this year', icon: 'calendar', view: 'this-year', count: count('this-year') },
+        { label: 'Long-term', icon: 'trending', view: 'long-term', count: count('long-term') },
+        { label: 'Can divert funds', icon: 'transactions', view: 'divertible', count: count('divertible') },
+      ],
+      manage: [
+        { label: 'Add contribution', icon: 'plus' },
+        { label: 'Divert funds', icon: 'transactions' },
+      ],
+      assist: [{ label: 'Contribution history', icon: 'history' }],
+      footer: {
+        icon: 'goal',
+        title: 'Schedule',
+        text:
+          `${steady} of ${rows.length} goals are on schedule.` +
+          (ahead.length ? ` ${ahead.map((g) => g.name).join(', ')} can spare funds.` : ''),
+        progress: rows.length ? steady / rows.length : 1,
+      },
+    };
+  }
+
+  private billsMenu(): SideMenu {
+    const rows = this.data.bills();
+    const paid = rows.filter((b) => b.status === 'paid').length;
+    const dueSoon = rows.filter((b) => {
+      const d = this.data.daysUntil(b.expectedDate);
+      return b.status === 'pending' && d >= 0 && d <= DUE_SOON_DAYS;
+    }).length;
+    return {
+      eyebrow: this.data.currentPeriod().label,
+      title: 'Bills this period',
+      blurb: 'Expected recurring payments, matched to transactions as they clear.',
+      newLabel: 'New recurring payment',
+      views: [
+        { label: 'All bills', icon: 'inbox', count: rows.length },
+        { label: 'Due this week', icon: 'calendar', view: 'due-soon', count: dueSoon, tone: 'warn' },
+      ],
+      manage: [
+        { label: 'Match a payment', icon: 'refresh' },
+        { label: 'Defer a bill', icon: 'history' },
+      ],
+      assist: [{ label: 'Recurring payments', icon: 'bill' }],
+      footer: {
+        icon: 'check-circle',
+        title: 'Paid so far',
+        text: `${paid} of ${rows.length} bills paid for ${this.data.currentPeriod().label}.`,
+        progress: rows.length ? paid / rows.length : 1,
       },
     };
   }

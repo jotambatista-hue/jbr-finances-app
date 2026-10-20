@@ -23,6 +23,7 @@
   --good: #34c77b;
   --warn: #f2b33d;
   --crit: #f06464;
+  --info: #5aa2ff;
   --neutral: #94a0b2;
 
   --canvas: radial-gradient(120% 70% at 50% 0%, #3d6eae 0%, #22426f 38%, #121c2e 75%, #0f1520 100%);
@@ -540,6 +541,16 @@ a {
   color: var(--warn);
 }
 
+.kpi-icon-good {
+  background: rgb(52 199 123 / 0.14);
+  color: var(--good);
+}
+
+.kpi-icon-info {
+  background: rgb(90 162 255 / 0.14);
+  color: var(--info);
+}
+
 .kpi-icon-crit {
   background: rgb(240 100 100 / 0.14);
   color: var(--crit);
@@ -717,6 +728,30 @@ a {
   margin: 0 4px;
 }
 
+.ahead {
+  display: block;
+  color: var(--info);
+  font-weight: 500;
+}
+
+.behind {
+  color: var(--warn);
+}
+
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.link-btn:hover {
+  color: var(--text);
+}
+
 /* ---------------------------------------------------------- Status pills */
 
 .pill {
@@ -753,6 +788,10 @@ a {
   --tone: var(--crit);
 }
 
+.pill-info {
+  --tone: var(--info);
+}
+
 /* ----------------------------------------------------- Budget usage meter */
 
 .category-cell {
@@ -776,6 +815,10 @@ a {
 
 .meter-crit {
   --tone: var(--crit);
+}
+
+.meter-info {
+  --tone: var(--info);
 }
 
 .meter-track {
@@ -843,6 +886,73 @@ a {
 .meter:hover .tooltip,
 .meter:focus-visible .tooltip {
   display: flex;
+}
+
+/* ----------------------------------------------------------------- Dialog */
+
+.dialog {
+  width: min(480px, calc(100vw - 32px));
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-strong);
+  background: #111a2b;
+  color: var(--text);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
+}
+
+.dialog::backdrop {
+  background: rgb(5 9 16 / 0.65);
+  backdrop-filter: blur(2px);
+}
+
+.dialog h2 {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.dialog-lede {
+  margin: 8px 0 20px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+
+.form-row small {
+  color: var(--text-3);
+}
+
+.form-row select {
+  height: 40px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: #0b1220;
+  color: var(--text);
+  font: inherit;
+}
+
+.form-row input[type='number'] {
+  font-variant-numeric: tabular-nums;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* --------------------------------------------------------------- Narrow */

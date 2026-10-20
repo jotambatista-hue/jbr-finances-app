@@ -1,0 +1,226 @@
+@let k = kpis();
+
+<div class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Home</span><span>/</span><span>Planning</span><span>/</span><span aria-current="page">Goals</span>
+    </nav>
+    <p class="eyebrow">Savings goals · {{ k.openCount }} in progress</p>
+    <h1>{{ title() }} · {{ rows().length }} {{ rows().length === 1 ? 'goal' : 'goals' }}</h1>
+    <p class="lede">Progress against each goal's due date, assuming steady saving from its start.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-ghost" type="button"><app-icon name="plus" [size]="16" /> Add contribution</button>
+    <button class="btn btn-primary" type="button"><app-icon name="plus" [size]="16" /> New goal</button>
+  </div>
+</div>
+
+<section class="kpi-grid" aria-label="Summary">
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="goal" /></span>
+    <div>
+      <span class="kpi-label">Saved toward goals</span>
+      <span class="kpi-value">{{ k.saved | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">of {{ k.target | currency: 'USD' : 'symbol' : '1.0-0' }} across {{ k.count }} goals</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="calendar" /></span>
+    <div>
+      <span class="kpi-label">Needed per month</span>
+      <span class="kpi-value">{{ k.monthly | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">to finish every open goal on time</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-info"><app-icon name="trending" /></span>
+    <div>
+      <span class="kpi-label">Ahead of schedule</span>
+      <span class="kpi-value">{{ k.surplus | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.aheadCount }} {{ k.aheadCount === 1 ? 'goal' : 'goals' }} · available to divert</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-warn"><app-icon name="alert" /></span>
+    <div>
+      <span class="kpi-label">Behind or past due</span>
+      <span class="kpi-value">{{ k.laggingCount }} of {{ k.count }}</span>
+      <span class="kpi-sub">{{ k.gap | currency: 'USD' : 'symbol' : '1.0-0' }} short of schedule</span>
+    </div>
+  </div>
+</section>
+
+<section class="table-card" aria-label="Goals">
+  <div class="toolbar">
+    <label class="field">
+      <app-icon name="search" [size]="16" />
+      <input
+        type="search"
+        placeholder="Search goals…"
+        aria-label="Search goals"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
+    </label>
+    <div class="chips" role="group" aria-label="Filter by status">
+      @for (s of statusFilters; track s) {
+        <button
+          class="chip"
+          type="button"
+          [class.active]="status() === s"
+          [attr.aria-pressed]="status() === s"
+          (click)="status.set(s)"
+        >
+          {{ statusLabel(s) }}
+        </button>
+      }
+    </div>
+    <div class="toolbar-end">
+      <button class="btn btn-text" type="button" (click)="cycleSort()">
+        <app-icon name="sort" [size]="16" /> Sort: {{ sort().label }}
+      </button>
+    </div>
+  </div>
+
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Goal</th>
+          <th scope="col" class="num">Saved</th>
+          <th scope="col">Due</th>
+          <th scope="col" class="num">vs. schedule</th>
+          <th scope="col" class="num">Needed / mo</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (g of rows(); track g.id) {
+          @let tone = statusMeta[g.status].tone;
+          <tr>
+            <td class="category-cell">
+              <span class="cell-title">{{ g.name }}</span>
+              <div
+                [class]="'meter meter-' + tone"
+                role="meter"
+                tabindex="0"
+                aria-valuemin="0"
+                [attr.aria-valuemax]="g.targetAmount"
+                [attr.aria-valuenow]="g.saved"
+                [attr.aria-label]="g.name + ': saved ' + (g.saved | currency) + ' of ' + (g.targetAmount | currency)"
+              >
+                <div class="meter-track">
+                  <span class="meter-fill" [style.width.%]="(g.progress > 1 ? 1 : g.progress) * 100"></span>
+                  @if (g.status !== 'reached') {
+                    <span class="meter-pace" [style.left.%]="g.expectedProgress * 100"></span>
+                  }
+                </div>
+                <span class="meter-caption">{{ g.progress | percent }} saved</span>
+                <div class="tooltip" role="tooltip">
+                  <strong>{{ g.name }}</strong>
+                  <span>Saved {{ g.saved | currency }} of {{ g.targetAmount | currency }}</span>
+                  <span>Expected by today: {{ g.expected | currency }} ({{ g.expectedProgress | percent }})</span>
+                  <span>{{ g.startDate | date: 'MMM d, y' }} → {{ g.targetDate | date: 'MMM d, y' }}</span>
+                </div>
+              </div>
+            </td>
+            <td class="num">
+              <span class="strong">{{ g.saved | currency }}</span>
+              <span class="cell-sub">of {{ g.targetAmount | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+            </td>
+            <td>
+              <span class="cell-title">{{ g.targetDate | date: 'MMM d, y' }}</span>
+              <span class="cell-sub" [class.negative]="g.daysLeft < 0 && g.status !== 'reached'">{{ dueLabel(g) }}</span>
+            </td>
+            <td class="num">
+              @if (g.status === 'reached') {
+                <span class="muted">—</span>
+              } @else if (g.status === 'ahead') {
+                <span class="ahead">+{{ data.surplus(g) | currency: 'USD' : 'symbol' : '1.0-0' }} ahead</span>
+                <button class="link-btn" type="button" (click)="openDivert(g)">Divert funds</button>
+              } @else {
+                <span [class.behind]="g.variance < 0">
+                  {{ g.variance < 0 ? '−' : '+' }}{{ (g.variance < 0 ? -g.variance : g.variance) | currency: 'USD' : 'symbol' : '1.0-0' }}
+                  {{ g.variance < 0 ? 'behind' : 'ahead' }}
+                </span>
+              }
+            </td>
+            <td class="num">
+              @if (g.status === 'reached') {
+                <span class="muted">—</span>
+              } @else {
+                {{ g.monthlyNeeded | currency: 'USD' : 'symbol' : '1.0-0' }}
+              }
+            </td>
+            <td>
+              <span [class]="'pill pill-' + tone">{{ statusMeta[g.status].label }}</span>
+            </td>
+            <td class="row-actions">
+              <button class="icon-btn icon-btn-sm" type="button" [attr.aria-label]="'Actions for ' + g.name">
+                <app-icon name="more" />
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7" class="empty">No goals match these filters.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-foot">
+    <span>Showing {{ rows().length }} of {{ k.count }} goals</span>
+    <span class="legend">
+      <span class="legend-pace" aria-hidden="true"></span> Where the goal should be today
+      <span class="legend-sep">·</span>
+      On track = within {{ tolerance | percent }} of that
+    </span>
+  </div>
+</section>
+
+<dialog #divertDialog class="dialog" aria-labelledby="divert-title" (close)="divertFrom.set(null)">
+  @if (divertFrom(); as from) {
+    <form method="dialog" (submit)="$event.preventDefault(); confirmDivert()">
+      <h2 id="divert-title">Divert funds from {{ from.name }}</h2>
+      <p class="dialog-lede">
+        This goal is {{ divertMax() | currency: 'USD' : 'symbol' : '1.0-0' }} ahead of schedule. Moving up to that
+        much keeps it on track. The money stays in the same account; only what it's set aside for changes.
+      </p>
+
+      <label class="form-row">
+        <span>Move to</span>
+        <select [value]="divertTo()" (change)="chooseTarget($any($event.target).value)">
+          @for (t of divertTargets(); track t.id) {
+            <option [value]="t.id">
+              {{ t.name }} — {{ statusMeta[t.status].label }}{{ t.variance < 0 ? ' (' + (-t.variance | currency: 'USD' : 'symbol' : '1.0-0') + ' short)' : '' }}
+            </option>
+          }
+        </select>
+      </label>
+
+      <label class="form-row">
+        <span>Amount</span>
+        <div class="field">
+          <span aria-hidden="true">$</span>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            [max]="divertMax()"
+            [value]="divertAmount()"
+            (input)="divertAmount.set(+$any($event.target).value)"
+          />
+        </div>
+        <small>Up to {{ divertMax() | currency: 'USD' : 'symbol' : '1.0-0' }}</small>
+      </label>
+
+      <div class="dialog-actions">
+        <button class="btn btn-ghost" type="button" (click)="closeDivert()">Cancel</button>
+        <button class="btn btn-primary" type="submit" [disabled]="!divertValid()">Divert {{ divertAmount() | currency: 'USD' : 'symbol' : '1.0-0' }}</button>
+      </div>
+    </form>
+  }
+</dialog>

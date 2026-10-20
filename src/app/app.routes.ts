@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 import { SECTIONS } from './sections';
 
-const BUILT = ['accounts', 'budgets'];
+const BUILT = ['accounts', 'budgets', 'goals', 'bills'];
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'accounts' },
@@ -14,6 +14,16 @@ export const routes: Routes = [
     path: 'budgets',
     title: 'Budgets · JBR Finances',
     loadComponent: () => import('./features/budgets/budgets-page').then((m) => m.BudgetsPage),
+  },
+  {
+    path: 'goals',
+    title: 'Goals · JBR Finances',
+    loadComponent: () => import('./features/goals/goals-page').then((m) => m.GoalsPage),
+  },
+  {
+    path: 'bills',
+    title: 'Bills · JBR Finances',
+    loadComponent: () => import('./features/bills/bills-page').then((m) => m.BillsPage),
   },
   ...SECTIONS.filter((s) => !BUILT.includes(s.path)).map((s) => ({
     path: s.path,

@@ -1,0 +1,146 @@
+@let k = kpis();
+
+<div class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Home</span><span>/</span><span>Commitments</span><span>/</span><span aria-current="page">Bills</span>
+    </nav>
+    <p class="eyebrow">{{ period().label }} · current period</p>
+    <h1>{{ title() }} · {{ rows().length }} {{ rows().length === 1 ? 'bill' : 'bills' }}</h1>
+    <p class="lede">Every recurring payment expected this period, and whether it has been paid.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-primary" type="button"><app-icon name="plus" [size]="16" /> New recurring payment</button>
+  </div>
+</div>
+
+<section class="kpi-grid" aria-label="Summary">
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="bill" /></span>
+    <div>
+      <span class="kpi-label">Due this period</span>
+      <span class="kpi-value">{{ k.total | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.count }} bills</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-good"><app-icon name="check-circle" /></span>
+    <div>
+      <span class="kpi-label">Paid</span>
+      <span class="kpi-value">{{ k.paidAmount | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.paidCount }} of {{ k.count }} bills</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-warn"><app-icon name="history" /></span>
+    <div>
+      <span class="kpi-label">Pending</span>
+      <span class="kpi-value">{{ k.pendingAmount | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.pendingCount }} {{ k.pendingCount === 1 ? 'bill' : 'bills' }} still to pay</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="calendar" /></span>
+    <div>
+      <span class="kpi-label">Next due</span>
+      @if (k.next; as next) {
+        <span class="kpi-value">{{ next.expectedDate | date: 'MMM d' }}</span>
+        <span class="kpi-sub">{{ next.name }} · {{ next.expectedAmount | currency }}</span>
+      } @else {
+        <span class="kpi-value">—</span>
+        <span class="kpi-sub">Nothing left this period</span>
+      }
+    </div>
+  </div>
+</section>
+
+<section class="table-card" aria-label="Bills">
+  <div class="toolbar">
+    <label class="field">
+      <app-icon name="search" [size]="16" />
+      <input
+        type="search"
+        placeholder="Search bills…"
+        aria-label="Search bills"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
+    </label>
+    <div class="chips" role="group" aria-label="Filter by status">
+      @for (s of statusFilters; track s) {
+        <button
+          class="chip"
+          type="button"
+          [class.active]="status() === s"
+          [attr.aria-pressed]="status() === s"
+          (click)="status.set(s)"
+        >
+          {{ statusLabel(s) }}
+        </button>
+      }
+    </div>
+  </div>
+
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Bill</th>
+          <th scope="col" class="num">Amount</th>
+          <th scope="col">Due date</th>
+          <th scope="col">Paid on</th>
+          <th scope="col">Account</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (b of rows(); track b.id) {
+          <tr>
+            <td>
+              <span class="cell-title">{{ b.name }}</span>
+              <span class="cell-sub">{{ b.categoryName }}</span>
+            </td>
+            <td class="num">
+              <span class="strong">{{ b.expectedAmount | currency }}</span>
+              @if (b.paidAmount !== null && b.paidAmount !== b.expectedAmount) {
+                <span class="cell-sub">paid {{ b.paidAmount | currency }}</span>
+              }
+            </td>
+            <td>
+              <span class="cell-title">{{ b.expectedDate | date: 'MMM d, y' }}</span>
+              @if (dueLabel(b); as label) {
+                <span class="cell-sub" [class.negative]="isLate(b)">{{ label }}</span>
+              }
+            </td>
+            <td class="muted">
+              @if (b.paidOn) {
+                {{ b.paidOn | date: 'MMM d, y' }}
+              } @else {
+                —
+              }
+            </td>
+            <td class="muted">{{ b.accountName }}</td>
+            <td>
+              <span [class]="'pill pill-' + statusMeta[b.status].tone">{{ statusMeta[b.status].label }}</span>
+            </td>
+            <td class="row-actions">
+              <button class="icon-btn icon-btn-sm" type="button" [attr.aria-label]="'Actions for ' + b.name">
+                <app-icon name="more" />
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7" class="empty">No bills match these filters.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-foot">
+    <span>Showing {{ rows().length }} of {{ k.count }} bills</span>
+    <span class="hint">A bill moves to Paid once its transaction is matched.</span>
+  </div>
+</section>

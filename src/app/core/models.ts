@@ -84,3 +84,34 @@ export interface BillOccurrence {
   status: 'pending' | 'paid' | 'missed' | 'deferred';
   periodId: string;
 }
+
+export interface RecurringPayment {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  nextDueDate: string;
+  status: 'active' | 'paused' | 'cancelled';
+  accountId: string;
+  categoryId: string;
+}
+
+export interface Goal {
+  id: string;
+  categoryId: string | null;
+  name: string;
+  targetAmount: number;
+  /** When saving started; with targetDate, defines the expected pace. */
+  startDate: string;
+  targetDate: string;
+  periodId: string | null;
+}
+
+export interface GoalContribution {
+  id: string;
+  /** Negative when funds are diverted away from the goal. */
+  amount: number;
+  date: string;
+  accountId: string;
+  goalId: string;
+}

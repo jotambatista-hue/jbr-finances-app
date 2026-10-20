@@ -6,6 +6,9 @@ import {
   BudgetPeriod,
   Category,
   CsvImport,
+  Goal,
+  GoalContribution,
+  RecurringPayment,
   Transaction,
 } from './models';
 
@@ -154,12 +157,104 @@ export const TRANSACTIONS: Transaction[] = [
   tx('2026-10-16', 'cat-bonus', 500.0, 'Q3 bonus - Acme Corp', 'acc-chk', 'income'),
 ];
 
+const recurring = (
+  id: string,
+  name: string,
+  amount: number,
+  nextDueDate: string,
+  categoryId: string,
+  accountId = 'acc-chk',
+): RecurringPayment => ({
+  id,
+  name,
+  amount,
+  frequency: 'monthly',
+  nextDueDate,
+  status: 'active',
+  accountId,
+  categoryId,
+});
+
+export const RECURRING_PAYMENTS: RecurringPayment[] = [
+  recurring('rp-rent', 'Rent - Maple Court Apts', 1850, '2026-11-01', 'cat-housing'),
+  recurring('rp-netflix', 'Netflix', 22.99, '2026-11-01', 'cat-subs', 'acc-cc1'),
+  recurring('rp-spotify', 'Spotify', 11.99, '2026-11-02', 'cat-subs', 'acc-cc1'),
+  recurring('rp-internet', 'Comcast Xfinity', 79.99, '2026-11-05', 'cat-internet'),
+  recurring('rp-phone', 'Mint Mobile', 60, '2026-11-07', 'cat-internet', 'acc-cc1'),
+  recurring('rp-water', 'City Water', 38.1, '2026-11-08', 'cat-utilities'),
+  recurring('rp-power', 'PG&E', 58.2, '2026-11-14', 'cat-utilities'),
+  recurring('rp-gym', 'Equinox membership', 45, '2026-10-20', 'cat-health', 'acc-cc2'),
+  recurring('rp-car-ins', 'Geico auto insurance', 128.4, '2026-10-25', 'cat-transport'),
+  recurring('rp-gas', 'SoCal Gas', 42, '2026-10-28', 'cat-utilities'),
+];
+
+const bill = (
+  n: number,
+  recurringPaymentId: string,
+  expectedAmount: number,
+  expectedDate: string,
+  transactionId: string | null = null,
+): BillOccurrence => ({
+  id: `bo-${n}`,
+  recurringPaymentId,
+  transactionId,
+  expectedAmount,
+  expectedDate,
+  status: transactionId ? 'paid' : 'pending',
+  periodId: 'per-2026-10',
+});
+
 export const BILL_OCCURRENCES: BillOccurrence[] = [
-  { id: 'bo-1', recurringPaymentId: 'rp-rent', transactionId: 'tx-1', expectedAmount: 1850, expectedDate: '2026-10-01', status: 'paid', periodId: 'per-2026-10' },
-  { id: 'bo-2', recurringPaymentId: 'rp-internet', transactionId: 'tx-16', expectedAmount: 79.99, expectedDate: '2026-10-05', status: 'paid', periodId: 'per-2026-10' },
-  { id: 'bo-3', recurringPaymentId: 'rp-phone', transactionId: 'tx-17', expectedAmount: 60, expectedDate: '2026-10-07', status: 'paid', periodId: 'per-2026-10' },
-  { id: 'bo-4', recurringPaymentId: 'rp-power', transactionId: 'tx-15', expectedAmount: 58.2, expectedDate: '2026-10-14', status: 'paid', periodId: 'per-2026-10' },
-  { id: 'bo-5', recurringPaymentId: 'rp-gym', transactionId: null, expectedAmount: 45, expectedDate: '2026-10-20', status: 'pending', periodId: 'per-2026-10' },
-  { id: 'bo-6', recurringPaymentId: 'rp-car-ins', transactionId: null, expectedAmount: 128.4, expectedDate: '2026-10-25', status: 'pending', periodId: 'per-2026-10' },
-  { id: 'bo-7', recurringPaymentId: 'rp-gas', transactionId: null, expectedAmount: 42, expectedDate: '2026-10-28', status: 'pending', periodId: 'per-2026-10' },
+  bill(1, 'rp-rent', 1850, '2026-10-01', 'tx-1'),
+  bill(2, 'rp-netflix', 22.99, '2026-10-01', 'tx-24'),
+  bill(3, 'rp-spotify', 11.99, '2026-10-02', 'tx-25'),
+  bill(4, 'rp-internet', 79.99, '2026-10-05', 'tx-16'),
+  bill(5, 'rp-phone', 60, '2026-10-07', 'tx-17'),
+  bill(6, 'rp-water', 38.1, '2026-10-08', 'tx-14'),
+  bill(7, 'rp-power', 58.2, '2026-10-14', 'tx-15'),
+  bill(8, 'rp-gym', 45, '2026-10-20'),
+  bill(9, 'rp-car-ins', 128.4, '2026-10-25'),
+  bill(10, 'rp-gas', 42, '2026-10-28'),
+];
+
+const goal = (
+  id: string,
+  name: string,
+  targetAmount: number,
+  startDate: string,
+  targetDate: string,
+): Goal => ({ id, categoryId: null, name, targetAmount, startDate, targetDate, periodId: null });
+
+export const GOALS: Goal[] = [
+  goal('goal-emergency', 'Emergency fund top-up', 15000, '2026-01-01', '2026-12-31'),
+  goal('goal-japan', 'Japan trip', 6000, '2026-03-01', '2027-04-01'),
+  goal('goal-car', 'Car down payment', 10000, '2026-01-15', '2027-06-30'),
+  goal('goal-laptop', 'New laptop', 2400, '2026-06-01', '2026-11-30'),
+  goal('goal-gifts', 'Holiday gifts', 1200, '2026-08-01', '2026-12-15'),
+  goal('goal-office', 'Home office setup', 3000, '2026-04-01', '2026-09-30'),
+  goal('goal-roth', 'Max out Roth IRA', 7000, '2026-01-01', '2026-12-31'),
+];
+
+let contributionSeq = 0;
+const contributions = (
+  goalId: string,
+  accountId: string,
+  entries: [date: string, amount: number][],
+): GoalContribution[] =>
+  entries.map(([date, amount]) => ({ id: `gc-${++contributionSeq}`, amount, date, accountId, goalId }));
+
+export const GOAL_CONTRIBUTIONS: GoalContribution[] = [
+  ...contributions('goal-emergency', 'acc-emg', [
+    ['2026-01-31', 3000], ['2026-03-31', 3000], ['2026-06-30', 3000], ['2026-09-30', 3000],
+  ]),
+  ...contributions('goal-japan', 'acc-sav', [
+    ['2026-03-31', 1000], ['2026-05-31', 1200], ['2026-07-31', 1000], ['2026-09-30', 1000],
+  ]),
+  ...contributions('goal-car', 'acc-sav', [['2026-02-15', 1000], ['2026-05-15', 1100], ['2026-08-15', 1000]]),
+  ...contributions('goal-laptop', 'acc-chk', [['2026-06-30', 800], ['2026-07-31', 800], ['2026-08-31', 800]]),
+  ...contributions('goal-gifts', 'acc-chk', [['2026-08-31', 260], ['2026-09-30', 260]]),
+  ...contributions('goal-office', 'acc-sav', [['2026-04-30', 1000], ['2026-06-30', 1000], ['2026-08-31', 650]]),
+  ...contributions('goal-roth', 'acc-ira', [
+    ['2026-01-31', 1500], ['2026-04-30', 1500], ['2026-07-31', 1500], ['2026-09-30', 1400],
+  ]),
 ];
