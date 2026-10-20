@@ -1,0 +1,180 @@
+@let k = kpis();
+@let p = period();
+@let d = periodDay();
+
+<div class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Home</span><span>/</span><span>Planning</span><span>/</span><span aria-current="page">Budgets</span>
+    </nav>
+    <p class="eyebrow">{{ p.label }} · day {{ d.day }} of {{ d.of }}</p>
+    <h1>{{ title() }} · {{ rows().length }} {{ rows().length === 1 ? 'category' : 'categories' }}</h1>
+    <p class="lede">Current target, what's actually been spent this month, and what's left.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-ghost" type="button"><app-icon name="sliders" [size]="16" /> Adjust</button>
+    <button class="btn btn-primary" type="button"><app-icon name="plus" [size]="16" /> New budget</button>
+  </div>
+</div>
+
+<section class="kpi-grid" aria-label="Summary">
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="budget" /></span>
+    <div>
+      <span class="kpi-label">Budgeted</span>
+      <span class="kpi-value">{{ k.budgeted | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">
+        @if (k.revisedBy) {
+          {{ k.revisedBy > 0 ? '+' : '−' }}{{ (k.revisedBy < 0 ? -k.revisedBy : k.revisedBy) | currency: 'USD' : 'symbol' : '1.0-0' }} vs. original plan
+        } @else {
+          as originally planned
+        }
+      </span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="transactions" /></span>
+    <div>
+      <span class="kpi-label">Spent so far</span>
+      <span class="kpi-value">{{ k.spent | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.spentRatio | percent }} of budget · {{ pace() | percent }} of month gone</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="wallet" /></span>
+    <div>
+      <span class="kpi-label">Left to spend</span>
+      <span class="kpi-value">{{ k.remaining | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ d.of - d.day }} days remaining</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-crit"><app-icon name="alert" /></span>
+    <div>
+      <span class="kpi-label">Over budget</span>
+      <span class="kpi-value">{{ k.overCount }} of {{ k.categoryCount }}</span>
+      <span class="kpi-sub">{{ k.overBy | currency: 'USD' }} over in total</span>
+    </div>
+  </div>
+</section>
+
+<section class="table-card" aria-label="Budgets">
+  <div class="toolbar">
+    <label class="field">
+      <app-icon name="search" [size]="16" />
+      <input
+        type="search"
+        placeholder="Search categories…"
+        aria-label="Search categories"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
+    </label>
+    <div class="chips" role="group" aria-label="Filter by status">
+      @for (s of statusFilters; track s) {
+        <button
+          class="chip"
+          type="button"
+          [class.active]="status() === s"
+          [attr.aria-pressed]="status() === s"
+          (click)="status.set(s)"
+        >
+          {{ statusLabel(s) }}
+        </button>
+      }
+    </div>
+    <div class="toolbar-end">
+      <button class="btn btn-text" type="button" (click)="cycleSort()">
+        <app-icon name="sort" [size]="16" /> Sort: {{ sort().label }}
+      </button>
+      <button class="icon-btn" type="button" aria-label="More options"><app-icon name="more" /></button>
+    </div>
+  </div>
+
+  <div class="table-scroll">
+    <table class="data-table budgets-table">
+      <thead>
+        <tr>
+          <th scope="col">Category</th>
+          <th scope="col" class="num">Budgeted</th>
+          <th scope="col" class="num">Actual</th>
+          <th scope="col" class="num">Remaining</th>
+          <th scope="col">Status</th>
+          <th scope="col">Changes</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (b of rows(); track b.id) {
+          @let tone = statusMeta[b.status].tone;
+          <tr>
+            <td class="category-cell">
+              <span class="cell-title">{{ b.categoryName }}</span>
+              <div
+                class="meter"
+                [class]="'meter meter-' + tone"
+                role="meter"
+                tabindex="0"
+                aria-valuemin="0"
+                [attr.aria-valuemax]="b.amount"
+                [attr.aria-valuenow]="b.actual"
+                [attr.aria-label]="b.categoryName + ': spent ' + (b.actual | currency) + ' of ' + (b.amount | currency)"
+              >
+                <div class="meter-track">
+                  <span class="meter-fill" [style.width.%]="fill(b)"></span>
+                  <span class="meter-pace" [style.left.%]="pace() * 100"></span>
+                </div>
+                <span class="meter-caption">{{ b.ratio | percent }} used</span>
+                <div class="tooltip" role="tooltip">
+                  <strong>{{ b.categoryName }}</strong>
+                  <span>Spent {{ b.actual | currency }} of {{ b.amount | currency }} ({{ b.ratio | percent }})</span>
+                  <span>Day {{ d.day }} of {{ d.of }} ({{ pace() | percent }} of the month)</span>
+                </div>
+              </div>
+            </td>
+            <td class="num">
+              <span class="strong">{{ b.amount | currency }}</span>
+              @if (b.amount !== b.originalAmount) {
+                <span class="cell-sub">was {{ b.originalAmount | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+              }
+            </td>
+            <td class="num strong">{{ b.actual | currency }}</td>
+            <td class="num" [class.negative]="b.remaining < 0">
+              {{ b.remaining < 0 ? '−' : '' }}{{ (b.remaining < 0 ? -b.remaining : b.remaining) | currency }}
+            </td>
+            <td>
+              <span [class]="'pill pill-' + tone">{{ statusMeta[b.status].label }}</span>
+            </td>
+            <td class="muted">
+              @if (b.adjustments.length) {
+                <span [title]="b.adjustments[b.adjustments.length - 1].note ?? ''">
+                  {{ b.adjustments.length }} {{ b.adjustments.length === 1 ? 'change' : 'changes' }}
+                </span>
+              } @else {
+                —
+              }
+            </td>
+            <td class="row-actions">
+              <button class="icon-btn icon-btn-sm" type="button" [attr.aria-label]="'Actions for ' + b.categoryName">
+                <app-icon name="more" />
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7" class="empty">No budgets match these filters.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-foot">
+    <span>Showing {{ rows().length }} of {{ k.categoryCount }} categories</span>
+    <span class="legend">
+      <span class="legend-pace" aria-hidden="true"></span> Today ({{ pace() | percent }} through {{ p.label }})
+      <span class="legend-sep">·</span>
+      Nearing limit from {{ nearingRatio | percent }} used
+    </span>
+  </div>
+</section>

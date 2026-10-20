@@ -1,0 +1,142 @@
+@let k = kpis();
+
+<div class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Home</span><span>/</span><span>Money</span><span>/</span><span aria-current="page">Accounts</span>
+    </nav>
+    <p class="eyebrow">Banking · {{ k.accountCount }} linked</p>
+    <h1>{{ title() }} · {{ rows().length }} {{ rows().length === 1 ? 'account' : 'accounts' }}</h1>
+    <p class="lede">Balances by account, and whether each one's CSV import is current.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-ghost" type="button"><app-icon name="upload" [size]="16" /> Import CSV</button>
+    <button class="btn btn-primary" type="button"><app-icon name="plus" [size]="16" /> New account</button>
+  </div>
+</div>
+
+<section class="kpi-grid" aria-label="Summary">
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="wallet" /></span>
+    <div>
+      <span class="kpi-label">Net balance</span>
+      <span class="kpi-value">{{ k.net | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">across {{ k.accountCount }} accounts</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="bank" /></span>
+    <div>
+      <span class="kpi-label">Cash &amp; savings</span>
+      <span class="kpi-value">{{ k.liquid | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.liquidCount }} accounts</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="chart" /></span>
+    <div>
+      <span class="kpi-label">Invested</span>
+      <span class="kpi-value">{{ k.invested | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.investmentCount }} accounts</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-warn"><app-icon name="card" /></span>
+    <div>
+      <span class="kpi-label">Card balances owed</span>
+      <span class="kpi-value">{{ k.owed | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ k.cardCount }} cards</span>
+    </div>
+  </div>
+</section>
+
+<section class="table-card" aria-label="Accounts">
+  <div class="toolbar">
+    <label class="field">
+      <app-icon name="search" [size]="16" />
+      <input
+        type="search"
+        placeholder="Search accounts…"
+        aria-label="Search accounts"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
+    </label>
+    <div class="chips" role="group" aria-label="Filter by status">
+      @for (s of statusFilters; track s) {
+        <button
+          class="chip"
+          type="button"
+          [class.active]="status() === s"
+          [attr.aria-pressed]="status() === s"
+          (click)="status.set(s)"
+        >
+          {{ statusLabel(s) }}
+        </button>
+      }
+    </div>
+    <div class="toolbar-end">
+      <button class="btn btn-text" type="button" (click)="cycleSort()">
+        <app-icon name="sort" [size]="16" /> Sort: {{ sort().label }}
+      </button>
+      <button class="icon-btn" type="button" aria-label="More options"><app-icon name="more" /></button>
+    </div>
+  </div>
+
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Account</th>
+          <th scope="col">Type</th>
+          <th scope="col" class="num">Balance</th>
+          <th scope="col">Currency</th>
+          <th scope="col">Last import</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (a of rows(); track a.id) {
+          <tr>
+            <td>
+              <span class="cell-title">{{ a.name }}</span>
+              <span class="cell-sub">{{ a.institution ?? 'No institution' }}</span>
+            </td>
+            <td class="muted">{{ a.typeLabel }}</td>
+            <td class="num strong" [class.negative]="a.balance < 0">
+              {{ a.balance | currency: a.currency }}
+            </td>
+            <td class="muted">{{ a.currency }}</td>
+            <td class="muted">
+              @if (a.lastImportAt) {
+                {{ a.lastImportAt | date: 'MMM d, y' }}
+              } @else {
+                —
+              }
+            </td>
+            <td>
+              <span class="pill" [class]="'pill pill-' + statusMeta[a.status].tone">
+                {{ statusMeta[a.status].label }}
+              </span>
+            </td>
+            <td class="row-actions">
+              <button class="icon-btn icon-btn-sm" type="button" [attr.aria-label]="'Actions for ' + a.name">
+                <app-icon name="more" />
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7" class="empty">No accounts match these filters.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-foot">
+    <span>Showing {{ rows().length }} of {{ k.accountCount }} accounts</span>
+    <span class="hint">“Import due” = no successful CSV import in the last {{ staleDays }} days.</span>
+  </div>
+</section>
