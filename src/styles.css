@@ -26,6 +26,27 @@
   --info: #5aa2ff;
   --neutral: #94a0b2;
 
+  /* Chart categorical slots (dark steps), validated against the card surface #0f1828. */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  /* Context bars (budgeted, money added) and the negative pole of blue<->red. */
+  --series-muted: #4f5b6e;
+  --series-negative: #e66767;
+  --goal-0: var(--series-1);
+  --goal-1: var(--series-2);
+  --goal-2: var(--series-3);
+  --goal-3: var(--series-4);
+  --goal-4: var(--series-5);
+  --goal-5: var(--series-6);
+  --goal-6: var(--series-7);
+  --chart-grid: #232c3b;
+  --chart-axis: #3a4456;
+
   --canvas: radial-gradient(120% 70% at 50% 0%, #3d6eae 0%, #22426f 38%, #121c2e 75%, #0f1520 100%);
 
   --radius-sm: 8px;
@@ -92,8 +113,11 @@ a {
   position: absolute;
   width: 1px;
   height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
@@ -169,6 +193,13 @@ a {
 }
 
 /* ------------------------------------------------------------------ Topbar */
+
+.nav-stack {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  line-height: 1.15;
+}
 
 .topbar {
   position: sticky;
@@ -752,6 +783,495 @@ a {
   color: var(--text);
 }
 
+/* ------------------------------------------------------- Card sections */
+
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-head h2 {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.card-head .muted {
+  font-size: 13px;
+}
+
+.section-gap {
+  margin-bottom: 24px;
+}
+
+/* Share-of-total bar: one series, so a single accent hue. */
+.share {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.share-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+}
+
+.share-track span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+/* ----------------------------------------------------- Net worth report */
+
+.report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+  align-items: start;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.report-table td,
+.report-table th {
+  white-space: normal;
+}
+
+.report-table .group-row th,
+.report-table .group-row td {
+  padding-top: 18px;
+  padding-bottom: 10px;
+  background: rgb(255 255 255 / 0.03);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.report-table tbody tr:nth-child(even) {
+  background: none;
+}
+
+.report-table .indent {
+  padding-left: 40px;
+}
+
+.report-table .total-row th,
+.report-table .total-row td {
+  padding-top: 16px;
+  padding-bottom: 16px;
+  border-top: 2px solid var(--border-strong);
+  border-bottom: 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.report-table .total-row .num {
+  text-align: right;
+}
+
+.calc-card {
+  max-width: 640px;
+  margin-left: auto;
+}
+
+.calc {
+  margin: 0;
+  padding: 8px 24px 20px;
+}
+
+.calc > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.calc dt {
+  color: var(--text-2);
+}
+
+.calc dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.calc-result {
+  margin-top: 6px;
+  border-top: 3px double var(--border-strong);
+  font-size: 20px;
+}
+
+.calc-result dt,
+.calc-result dd {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.positive {
+  color: var(--good);
+}
+
+.cell-link:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.select {
+  height: 36px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: #0b1220;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+/* --------------------------------------------------------------- Dashboard */
+
+.kpi-link {
+  transition: border-color 0.15s;
+}
+
+.kpi-link:hover {
+  border-color: var(--border-strong);
+}
+
+.dash-card {
+  margin-bottom: 24px;
+  overflow: visible;
+}
+
+.dash-card .card-head {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.card-sub {
+  margin-top: 2px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.card-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgb(255 255 255 / 0.03);
+}
+
+.segmented button {
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.segmented button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.dash-body {
+  padding: 18px 24px 22px;
+}
+
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+  align-items: start;
+  gap: 24px;
+}
+
+.dash-grid .dash-card {
+  margin-bottom: 24px;
+}
+
+.dash-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 24px;
+}
+
+.chart-title {
+  margin-bottom: 6px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.dash-subhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 22px 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dash-subhead:first-child {
+  margin-top: 0;
+}
+
+.dash-subhead .muted {
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin-bottom: 16px;
+}
+
+.stat-row div {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-row span {
+  color: var(--text-2);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.stat-row strong {
+  font-size: 20px;
+}
+
+.dist-list {
+  display: grid;
+  grid-template-columns: minmax(100px, auto) minmax(90px, 1fr) auto auto;
+  gap: 10px 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Rows share the list's columns so every meter lines up. */
+.dist-list li {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  font-size: 14px;
+}
+
+.dist-list .meter {
+  max-width: none;
+  margin: 0;
+}
+
+.dist-list .pill {
+  justify-self: start;
+  font-size: 12px;
+  padding: 2px 10px;
+}
+
+.dist-name small,
+.dist-value small {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.dist-value {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 100% composition bar with 2px surface gaps between segments. */
+.stackbar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.stackbar span {
+  flex-basis: 0;
+  min-width: 3px;
+}
+
+.stack-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 8px 24px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.stack-legend li {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.stack-legend .muted {
+  min-width: 44px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ Charts */
+
+.chart {
+  display: block;
+  position: relative;
+  min-width: 0;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 8px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.swatch-line {
+  height: 3px;
+  width: 14px;
+  border-radius: 2px;
+}
+
+.chart-wrap {
+  position: relative;
+}
+
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart-grid {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+}
+
+.chart-baseline {
+  stroke: var(--chart-axis);
+  stroke-width: 1;
+}
+
+.chart-tick {
+  fill: var(--text-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-band {
+  fill: rgb(255 255 255 / 0.04);
+}
+
+.chart-hit {
+  fill: transparent;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart-dot {
+  stroke: var(--surface-raised);
+  stroke-width: 2;
+}
+
+.chart-tooltip {
+  position: absolute;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: #0b1220;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+  font-size: 13px;
+  pointer-events: none;
+  transform: translateX(14px);
+}
+
+.chart-tooltip.flip {
+  transform: translateX(calc(-100% - 14px));
+}
+
+.chart-tooltip strong {
+  margin-bottom: 2px;
+}
+
+.tt-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+}
+
+.tt-value {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------------------------------------------------------- Status pills */
 
 .pill {
@@ -766,6 +1286,7 @@ a {
   color: var(--tone);
   font-size: 13px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .pill::before {
@@ -1007,5 +1528,52 @@ a {
   .data-table th,
   .data-table td {
     padding-inline: 16px;
+  }
+}
+
+/* ---------------------------------------------------------------- Print */
+
+@media print {
+  .topbar,
+  .sidebar,
+  .page-actions,
+  .crumbs {
+    display: none !important;
+  }
+
+  body,
+  .canvas {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  .shell {
+    display: block;
+  }
+
+  .kpi,
+  .table-card {
+    background: #fff !important;
+    border-color: #ccc !important;
+    backdrop-filter: none;
+    break-inside: avoid;
+  }
+
+  .data-table th,
+  .data-table td,
+  .kpi-label,
+  .kpi-sub,
+  .muted,
+  .cell-sub,
+  .calc dt,
+  .lede,
+  .eyebrow {
+    color: #333 !important;
+  }
+
+  .data-table th,
+  .data-table td,
+  .card-head {
+    border-color: #ddd !important;
   }
 }

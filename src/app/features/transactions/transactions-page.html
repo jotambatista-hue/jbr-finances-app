@@ -1,0 +1,160 @@
+@let t = totals();
+
+<div class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Home</span><span>/</span><span>Money</span><span>/</span><span aria-current="page">Transactions</span>
+    </nav>
+    <p class="eyebrow">{{ accountName() ?? 'All accounts' }}</p>
+    <h1>{{ title() }}</h1>
+    <p class="lede">
+      @if (showImports()) {
+        Every CSV file loaded, which account it fed, and how it went.
+      } @else {
+        Everything that moved in or out, whether imported from a CSV or entered by hand.
+      }
+    </p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-ghost" type="button"><app-icon name="plus" [size]="16" /> Add transaction</button>
+    <button class="btn btn-primary" type="button"><app-icon name="upload" [size]="16" /> Import CSV</button>
+  </div>
+</div>
+
+@if (!showImports()) {
+  <section class="kpi-grid" aria-label="Summary">
+    <div class="kpi">
+      <span class="kpi-icon kpi-icon-good"><app-icon name="download" /></span>
+      <div>
+        <span class="kpi-label">Money in</span>
+        <span class="kpi-value">{{ t.moneyIn | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+        <span class="kpi-sub">in the rows shown</span>
+      </div>
+    </div>
+    <div class="kpi">
+      <span class="kpi-icon kpi-icon-crit"><app-icon name="upload" /></span>
+      <div>
+        <span class="kpi-label">Money out</span>
+        <span class="kpi-value">{{ t.moneyOut | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+        <span class="kpi-sub">in the rows shown</span>
+      </div>
+    </div>
+    <div class="kpi">
+      <span class="kpi-icon"><app-icon name="transactions" /></span>
+      <div>
+        <span class="kpi-label">Net</span>
+        <span class="kpi-value" [class.negative]="t.net < 0">{{ t.net < 0 ? '−' : '' }}{{ (t.net < 0 ? -t.net : t.net) | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+        <span class="kpi-sub">{{ t.count }} transactions</span>
+      </div>
+    </div>
+  </section>
+}
+
+<section class="table-card" [attr.aria-label]="showImports() ? 'Import history' : 'Transactions'">
+  <div class="toolbar">
+    @if (!showImports()) {
+      <label class="field">
+        <app-icon name="search" [size]="16" />
+        <input
+          type="search"
+          placeholder="Search description, category, account…"
+          aria-label="Search transactions"
+          [value]="query()"
+          (input)="query.set($any($event.target).value)"
+        />
+      </label>
+    }
+    <select class="select" aria-label="Account" [value]="account() ?? ''" (change)="setAccount($any($event.target).value)">
+      <option value="">All accounts</option>
+      @for (a of accountOptions(); track a.id) {
+        <option [value]="a.id">{{ a.name }}</option>
+      }
+    </select>
+    @if (!showImports()) {
+      <div class="chips" role="group" aria-label="Filter by type">
+        @for (f of typeFilters; track f) {
+          <button class="chip" type="button" [class.active]="type() === f" [attr.aria-pressed]="type() === f" (click)="type.set(f)">
+            {{ typeLabel(f) }}
+          </button>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="table-scroll">
+    @if (showImports()) {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">File</th>
+            <th scope="col">Account</th>
+            <th scope="col">Imported</th>
+            <th scope="col" class="num">Rows</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (i of imports(); track i.id) {
+            <tr>
+              <td class="cell-title">{{ i.filename }}</td>
+              <td class="muted">{{ i.accountName }}</td>
+              <td class="muted">{{ i.importedAt | date: 'MMM d, y · h:mm a' }}</td>
+              <td class="num">{{ i.rowCount }}</td>
+              <td><span [class]="'pill pill-' + importStatus[i.status].tone">{{ importStatus[i.status].label }}</span></td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="empty">No imports for this account yet.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Description</th>
+            <th scope="col">Category</th>
+            <th scope="col">Account</th>
+            <th scope="col" class="num">Amount</th>
+            <th scope="col">Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of rows(); track r.id) {
+            <tr>
+              <td class="muted">{{ r.date | date: 'MMM d, y' }}</td>
+              <td class="cell-title">{{ r.description }}</td>
+              <td class="muted">{{ r.categoryName }}</td>
+              <td class="muted">{{ r.accountName }}</td>
+              <td class="num strong" [class.positive]="r.signedAmount > 0">
+                {{ r.signedAmount > 0 ? '+' : '−' }}{{ r.amount | currency }}
+              </td>
+              <td class="muted">
+                @if (r.source) {
+                  <span class="source" [title]="r.source"><app-icon name="upload" [size]="14" /> CSV</span>
+                } @else {
+                  Manual
+                }
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty">No transactions match these filters.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  <div class="table-foot">
+    @if (showImports()) {
+      <span>{{ imports().length }} imports</span>
+    } @else {
+      <span>Showing {{ t.count }} transactions</span>
+      <span class="hint">Hover “CSV” to see which file a transaction came from.</span>
+    }
+  </div>
+</section>

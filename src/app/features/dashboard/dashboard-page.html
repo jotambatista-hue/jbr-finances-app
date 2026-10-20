@@ -1,0 +1,279 @@
+@let k = kpis();
+
+<div class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Home</span><span>/</span><span aria-current="page">Dashboard</span>
+    </nav>
+    <p class="eyebrow">Overview · {{ data.currentPeriod().label }}</p>
+    <h1>Dashboard</h1>
+    <p class="lede">Net worth, budgets, goals and investments at a glance.</p>
+  </div>
+</div>
+
+<section class="kpi-grid" aria-label="Summary">
+  <a class="kpi kpi-link" routerLink="/net-worth">
+    <span class="kpi-icon"><app-icon name="trending" /></span>
+    <div>
+      <span class="kpi-label">Net worth</span>
+      <span class="kpi-value">{{ k.netWorth | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      @if (k.netWorthChange; as c) {
+        <span class="kpi-sub">{{ money(c.change) }} since last month-end</span>
+      }
+    </div>
+  </a>
+  <a class="kpi kpi-link" routerLink="/budgets">
+    <span class="kpi-icon"><app-icon name="budget" /></span>
+    <div>
+      <span class="kpi-label">Budget used</span>
+      <span class="kpi-value">{{ k.budgetUsed | percent }}</span>
+      <span class="kpi-sub">{{ k.overBudget }} {{ k.overBudget === 1 ? 'category' : 'categories' }} over budget</span>
+    </div>
+  </a>
+  <a class="kpi kpi-link" routerLink="/goals">
+    <span class="kpi-icon"><app-icon name="goal" /></span>
+    <div>
+      <span class="kpi-label">Goals on schedule</span>
+      <span class="kpi-value">{{ k.onSchedule }} of {{ k.goalCount }}</span>
+      <span class="kpi-sub">ahead, on track or reached</span>
+    </div>
+  </a>
+  <a class="kpi kpi-link" routerLink="/investments">
+    <span class="kpi-icon"><app-icon name="chart" /></span>
+    <div>
+      <span class="kpi-label">Invested</span>
+      <span class="kpi-value">{{ k.invested | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ money(k.ytdGain) }} market gain this year ({{ k.ytdReturn | percent: '1.1-1' }})</span>
+    </div>
+  </a>
+</section>
+
+<!-- Owned vs owed -->
+<section class="table-card dash-card" aria-labelledby="dash-nw">
+  <div class="card-head">
+    <div>
+      <h2 id="dash-nw">Owned vs. owed</h2>
+      <p class="card-sub">Month-end totals; the line is net worth (owned − owed).</p>
+    </div>
+    <div class="segmented" role="group" aria-label="Range">
+      <button type="button" [class.active]="netWorthRange() === 12" [attr.aria-pressed]="netWorthRange() === 12" (click)="netWorthRange.set(12)">12 months</button>
+      <button type="button" [class.active]="netWorthRange() === 'all'" [attr.aria-pressed]="netWorthRange() === 'all'" (click)="netWorthRange.set('all')">All</button>
+    </div>
+  </div>
+  <div class="dash-body">
+    @let nw = netWorthChart();
+    <app-chart
+      [labels]="nw.labels"
+      [titles]="nw.titles"
+      [series]="nw.series"
+      [height]="280"
+      [format]="money"
+      [tickFormat]="compact"
+      ariaLabel="Owned, owed and net worth by month"
+    />
+  </div>
+</section>
+
+<div class="dash-grid">
+  <!-- Budgets -->
+  <section class="table-card dash-card" aria-labelledby="dash-budget">
+    <div class="card-head">
+      <div>
+        <h2 id="dash-budget">Budgets</h2>
+        <p class="card-sub">
+          @if (budgetMode() === 'month') {
+            Where the money went by category in {{ monthLabel(selectedBudgetMonth()) }}.
+          } @else {
+            Budgeted vs. actual spending each month of {{ selectedBudgetYear() }}.
+          }
+        </p>
+      </div>
+      <div class="card-tools">
+        <div class="segmented" role="group" aria-label="Budget view">
+          <button type="button" [class.active]="budgetMode() === 'month'" [attr.aria-pressed]="budgetMode() === 'month'" (click)="budgetMode.set('month')">Month</button>
+          <button type="button" [class.active]="budgetMode() === 'year'" [attr.aria-pressed]="budgetMode() === 'year'" (click)="budgetMode.set('year')">Year</button>
+        </div>
+        @if (budgetMode() === 'month') {
+          <select class="select" aria-label="Month" [value]="selectedBudgetMonth()" (change)="budgetMonth.set($any($event.target).value)">
+            @for (m of budgetMonths(); track m) {
+              <option [value]="m">{{ monthLabel(m) }}</option>
+            }
+          </select>
+        } @else {
+          <select class="select" aria-label="Year" [value]="selectedBudgetYear()" (change)="budgetYear.set($any($event.target).value)">
+            @for (y of years(); track y) {
+              <option [value]="y">{{ y }}</option>
+            }
+          </select>
+        }
+      </div>
+    </div>
+    <div class="dash-body">
+      @if (budgetMode() === 'month') {
+        @let bm = budgetByCategory();
+        <div class="stat-row">
+          <div><span>Budgeted</span><strong>{{ bm.budgeted | currency: 'USD' : 'symbol' : '1.0-0' }}</strong></div>
+          <div><span>Actual</span><strong>{{ bm.actual | currency: 'USD' : 'symbol' : '1.0-0' }}</strong></div>
+          <div>
+            <span>{{ bm.variance >= 0 ? 'Under budget' : 'Over budget' }}</span>
+            <strong [class.negative]="bm.variance < 0">{{ money(bm.variance < 0 ? -bm.variance : bm.variance) }}</strong>
+          </div>
+        </div>
+        <ul class="dist-list">
+          @for (r of bm.rows; track r.categoryId) {
+            @let tone = budgetStatus[r.status].tone;
+            <li>
+              <span class="dist-name">{{ r.name }}</span>
+              <div [class]="'meter meter-' + tone" role="meter" aria-valuemin="0" [attr.aria-valuemax]="r.budgeted" [attr.aria-valuenow]="r.actual" [attr.aria-label]="r.name + ': ' + money(r.actual) + ' of ' + money(r.budgeted)">
+                <div class="meter-track"><span class="meter-fill" [style.width.%]="(r.ratio > 1 ? 1 : r.ratio) * 100"></span></div>
+              </div>
+              <span class="dist-value">{{ r.actual | currency: 'USD' : 'symbol' : '1.0-0' }} <small>/ {{ r.budgeted | currency: 'USD' : 'symbol' : '1.0-0' }}</small></span>
+              <span [class]="'pill pill-' + tone">{{ budgetStatus[r.status].label }}</span>
+            </li>
+          }
+        </ul>
+      } @else {
+        @let by = budgetYearChart();
+        <div class="stat-row">
+          <div><span>Budgeted</span><strong>{{ by.budgeted | currency: 'USD' : 'symbol' : '1.0-0' }}</strong></div>
+          <div><span>Actual</span><strong>{{ by.actual | currency: 'USD' : 'symbol' : '1.0-0' }}</strong></div>
+          <div><span>Months over budget</span><strong>{{ by.monthsOver }} of {{ by.monthCount }}</strong></div>
+        </div>
+        <app-chart
+          [labels]="by.labels"
+          [titles]="by.titles"
+          [series]="by.series"
+          [format]="money"
+          [tickFormat]="compact"
+          [ariaLabel]="'Budgeted vs. actual by month, ' + selectedBudgetYear()"
+        />
+      }
+    </div>
+  </section>
+
+  <!-- Goals -->
+  <section class="table-card dash-card" aria-labelledby="dash-goals">
+    <div class="card-head">
+      <div>
+        <h2 id="dash-goals">Goals</h2>
+        <p class="card-sub">Progress against schedule, and what went into each goal by month.</p>
+      </div>
+      <select class="select" aria-label="Year" [value]="selectedGoalYear()" (change)="goalYear.set($any($event.target).value)">
+        @for (y of years(); track y) {
+          <option [value]="y">{{ y }}</option>
+        }
+      </select>
+    </div>
+    <div class="dash-body">
+      <ul class="dist-list">
+        @for (g of data.goals(); track g.id) {
+          @let tone = goalStatus[g.status].tone;
+          <li>
+            <span class="dist-name">{{ g.name }}</span>
+            <div [class]="'meter meter-' + tone" role="meter" aria-valuemin="0" [attr.aria-valuemax]="g.targetAmount" [attr.aria-valuenow]="g.saved" [attr.aria-label]="g.name + ': ' + money(g.saved) + ' of ' + money(g.targetAmount)">
+              <div class="meter-track">
+                <span class="meter-fill" [style.width.%]="(g.progress > 1 ? 1 : g.progress) * 100"></span>
+                @if (g.status !== 'reached') {
+                  <span class="meter-pace" [style.left.%]="g.expectedProgress * 100"></span>
+                }
+              </div>
+            </div>
+            <span class="dist-value">{{ g.progress | percent }}</span>
+            <span [class]="'pill pill-' + tone">{{ goalStatus[g.status].label }}</span>
+          </li>
+        }
+      </ul>
+      @let gc = goalChart();
+      <h3 class="dash-subhead">
+        Contributions in {{ selectedGoalYear() }}
+        <span class="muted">{{ gc.total | currency: 'USD' : 'symbol' : '1.0-0' }} total</span>
+      </h3>
+      @if (gc.series.length) {
+        <app-chart
+          [labels]="gc.labels"
+          [titles]="gc.titles"
+          [series]="gc.series"
+          [height]="220"
+          [format]="money"
+          [tickFormat]="compact"
+          [ariaLabel]="'Goal contributions by month, ' + selectedGoalYear()"
+        />
+      } @else {
+        <p class="empty">No contributions in {{ selectedGoalYear() }}.</p>
+      }
+    </div>
+  </section>
+</div>
+
+<!-- Investments -->
+<section class="table-card dash-card" aria-labelledby="dash-inv">
+  <div class="card-head">
+    <div>
+      <h2 id="dash-inv">Investments</h2>
+      <p class="card-sub">How the money is spread, and how it performed.</p>
+    </div>
+    <div class="segmented" role="group" aria-label="Performance period">
+      @for (g of ['month', 'quarter', 'year']; track g) {
+        <button type="button" [class.active]="granularity() === g" [attr.aria-pressed]="granularity() === g" (click)="granularity.set($any(g))">
+          {{ g === 'month' ? 'Monthly' : g === 'quarter' ? 'Quarterly' : 'Yearly' }}
+        </button>
+      }
+    </div>
+  </div>
+  <div class="dash-body">
+    @let d = distribution();
+    <h3 class="dash-subhead">
+      Distribution
+      <span class="muted">{{ d.total | currency: 'USD' : 'symbol' : '1.0-0' }} · {{ d.retirementShare | percent }} in retirement accounts</span>
+    </h3>
+    <div class="stackbar" role="img" [attr.aria-label]="'Investment distribution across ' + d.items.length + ' accounts'">
+      @for (i of d.items; track i.id) {
+        <span [style.flex-grow]="i.share" [style.background]="i.color" [title]="i.name + ': ' + money(i.balance)"></span>
+      }
+    </div>
+    <ul class="stack-legend">
+      @for (i of d.items; track i.id) {
+        <li>
+          <span class="swatch" [style.background]="i.color"></span>
+          <span class="dist-name">{{ i.name }} <small>{{ i.kind }}</small></span>
+          <span class="dist-value">{{ i.balance | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+          <span class="muted">{{ i.share | percent: '1.1-1' }}</span>
+        </li>
+      }
+    </ul>
+
+    @let p = performance();
+    <h3 class="dash-subhead">
+      Performance
+      <span class="muted">
+        {{ money(p.gain) }} market gain · {{ money(p.contributions) }} added
+        ({{ granularity() === 'month' ? 'last 12 months' : 'all history' }})
+      </span>
+    </h3>
+    <div class="dash-pair">
+      <div>
+        <p class="chart-title">Change in value</p>
+        <app-chart
+          [labels]="p.labels"
+          [titles]="p.titles"
+          [series]="p.changeSeries"
+          [format]="money"
+          [tickFormat]="compact"
+          ariaLabel="Change in invested value per period: money added and market gain"
+        />
+      </div>
+      <div>
+        <p class="chart-title">Invested value at period end</p>
+        <app-chart
+          [labels]="p.labels"
+          [titles]="p.titles"
+          [series]="p.valueSeries"
+          [includeZero]="false"
+          [format]="money"
+          [tickFormat]="compact"
+          ariaLabel="Total invested value at the end of each period"
+        />
+      </div>
+    </div>
+  </div>
+</section>

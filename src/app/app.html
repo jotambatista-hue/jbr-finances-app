@@ -9,9 +9,18 @@
 
   <nav class="topnav" aria-label="Modules">
     @for (s of sections; track s.path) {
-      <a [routerLink]="'/' + s.path" routerLinkActive="active" ariaCurrentWhenActive="page">
+      <a
+        [routerLink]="'/' + s.path"
+        routerLinkActive="active"
+        ariaCurrentWhenActive="page"
+        [attr.aria-label]="s.stacked ? s.label : null"
+      >
         <app-icon [name]="s.icon" />
-        {{ s.label }}
+        @if (s.stacked; as words) {
+          <span class="nav-stack" aria-hidden="true"><span>{{ words[0] }}</span><span>{{ words[1] }}</span></span>
+        } @else {
+          {{ s.label }}
+        }
       </a>
     }
   </nav>
@@ -57,6 +66,7 @@
             [class.active]="active"
             [routerLink]="'/' + section().path"
             [queryParams]="{ view: v.view ?? null }"
+            queryParamsHandling="merge"
             [attr.aria-current]="active ? 'page' : null"
           >
             <app-icon [name]="v.icon" />

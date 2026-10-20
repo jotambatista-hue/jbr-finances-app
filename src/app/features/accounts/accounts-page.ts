@@ -1,5 +1,6 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import {
   ACCOUNT_STATUS,
   AccountRow,
@@ -14,6 +15,8 @@ const VIEW_TYPES: Record<string, AccountRow['type'][]> = {
   credit: ['credit_card'],
   investment: ['investment'],
   cash: ['cash'],
+  loans: ['loan'],
+  property: ['property'],
 };
 
 const VIEW_TITLES: Record<string, string> = {
@@ -21,6 +24,8 @@ const VIEW_TITLES: Record<string, string> = {
   credit: 'Credit cards',
   investment: 'Investments',
   cash: 'Cash',
+  loans: 'Loans',
+  property: 'Property & vehicles',
 };
 
 const SORTS = [
@@ -31,7 +36,7 @@ const SORTS = [
 
 @Component({
   selector: 'app-accounts-page',
-  imports: [CurrencyPipe, DatePipe, Icon],
+  imports: [CurrencyPipe, DatePipe, Icon, RouterLink],
   templateUrl: './accounts-page.html',
 })
 export class AccountsPage {
@@ -74,15 +79,15 @@ export class AccountsPage {
     const all = this.data.accounts();
     const sum = (rows: AccountRow[]) => rows.reduce((t, a) => t + a.balance, 0);
     const liquid = all.filter((a) => ['checking', 'savings', 'cash'].includes(a.type));
-    const cards = all.filter((a) => a.type === 'credit_card');
+    const debts = all.filter((a) => a.type === 'credit_card' || a.type === 'loan');
     const investments = all.filter((a) => a.type === 'investment');
     return {
       net: sum(all),
       accountCount: all.length,
       liquid: sum(liquid),
       liquidCount: liquid.length,
-      owed: -sum(cards),
-      cardCount: cards.length,
+      owed: -sum(debts),
+      debtCount: debts.length,
       invested: sum(investments),
       investmentCount: investments.length,
     };

@@ -1,13 +1,37 @@
 /** Client-side shapes of the tables in database/001_initial_schema.sql (camelCased). */
 
-export type AccountType = 'checking' | 'savings' | 'credit_card' | 'investment' | 'cash';
+export type AccountType =
+  | 'checking'
+  | 'savings'
+  | 'credit_card'
+  | 'investment'
+  | 'cash'
+  | 'loan'
+  | 'property';
+
+/** Finer-grained kind within a type, e.g. Roth IRA vs. brokerage, auto vs. student loan. */
+export type AccountSubtype =
+  | 'brokerage'
+  | 'traditional_ira'
+  | 'roth_ira'
+  | 'rollover_ira'
+  | '401k'
+  | 'roth_401k'
+  | '403b'
+  | 'auto'
+  | 'student'
+  | 'mortgage'
+  | 'personal'
+  | 'home'
+  | 'vehicle';
 
 export interface Account {
   id: string;
   name: string;
   type: AccountType;
+  subtype: AccountSubtype | null;
   institution: string | null;
-  /** Liabilities (credit cards) are stored as negative balances. */
+  /** Liabilities (credit cards, loans) are stored as negative balances. */
   balance: number;
   currency: string;
 }
@@ -114,4 +138,29 @@ export interface GoalContribution {
   date: string;
   accountId: string;
   goalId: string;
+}
+
+export type LifeKind = 'term' | 'whole' | 'universal' | 'indexed_universal' | 'variable_universal';
+
+export interface InsurancePolicy {
+  id: string;
+  name: string;
+  provider: string;
+  type: 'auto' | 'home' | 'life' | 'health';
+  /** Only for life policies; anything but term is permanent and builds cash value. */
+  lifeKind: LifeKind | null;
+  premium: number;
+  frequency: string;
+  effectiveDate: string;
+  expirationDate: string | null;
+  cashValue: number | null;
+  cashValueAsOf: string | null;
+  deathBenefit: number | null;
+  recurringPaymentId: string | null;
+}
+
+export interface NetWorthSnapshot {
+  id: string;
+  date: string;
+  totalValue: number;
 }

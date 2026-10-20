@@ -57,14 +57,22 @@ export class App {
 
   protected readonly menu = computed<SideMenu>(() => {
     switch (this.section().path) {
+      case 'dashboard':
+        return this.dashboardMenu();
       case 'accounts':
         return this.accountsMenu();
+      case 'transactions':
+        return this.transactionsMenu();
       case 'budgets':
         return this.budgetsMenu();
       case 'goals':
         return this.goalsMenu();
       case 'bills':
         return this.billsMenu();
+      case 'investments':
+        return this.investmentsMenu();
+      case 'net-worth':
+        return this.netWorthMenu();
       default:
         return {
           eyebrow: this.section().label,
@@ -95,6 +103,8 @@ export class App {
         { label: 'Credit cards', icon: 'card', view: 'credit', count: ofType('credit_card') },
         { label: 'Investments', icon: 'chart', view: 'investment', count: ofType('investment') },
         { label: 'Cash', icon: 'cash', view: 'cash', count: ofType('cash') },
+        { label: 'Loans', icon: 'bill', view: 'loans', count: ofType('loan') },
+        { label: 'Property & vehicles', icon: 'layers', view: 'property', count: ofType('property') },
       ],
       manage: [
         { label: 'Import CSV', icon: 'upload' },
@@ -214,6 +224,126 @@ export class App {
         text: `${paid} of ${rows.length} bills paid for ${this.data.currentPeriod().label}.`,
         progress: rows.length ? paid / rows.length : 1,
       },
+    };
+  }
+
+  private investmentsMenu(): SideMenu {
+    const inv = this.data.investments();
+    const policies = this.data.permanentPolicies();
+    const retirement = inv.filter((a) => a.group === 'retirement');
+    const total = inv.reduce((t, a) => t + a.balance, 0);
+    const retirementTotal = retirement.reduce((t, a) => t + a.balance, 0);
+    return {
+      eyebrow: 'Wealth',
+      title: 'Investments & Insurance',
+      blurb: 'Long-term holdings and the cash value of permanent life policies.',
+      newLabel: 'Add holding',
+      views: [
+        { label: 'Everything', icon: 'inbox', count: inv.length + policies.length },
+        { label: 'Retirement', icon: 'calendar', view: 'retirement', count: retirement.length },
+        { label: 'Personal investments', icon: 'trending', view: 'personal', count: inv.length - retirement.length },
+        { label: 'Life insurance', icon: 'shield', view: 'insurance', count: policies.length },
+      ],
+      manage: [
+        { label: 'Update balances', icon: 'upload' },
+        { label: 'Record policy value', icon: 'shield' },
+      ],
+      assist: [{ label: 'Allocation overview', icon: 'budget' }],
+      footer: {
+        icon: 'chart',
+        title: 'Retirement share',
+        text: `${Math.round((retirementTotal / (total || 1)) * 100)}% of invested money is in retirement accounts.`,
+        progress: total ? retirementTotal / total : 0,
+      },
+    };
+  }
+
+  private netWorthMenu(): SideMenu {
+    const s = this.data.balanceSheet();
+    const ratio = s.totalOwned ? s.totalOwed / s.totalOwned : 0;
+    return {
+      eyebrow: 'Wealth',
+      title: 'Net worth report',
+      blurb: 'Built live from every account balance and policy cash value.',
+      newLabel: 'Take snapshot',
+      views: [
+        { label: 'Full report', icon: 'inbox' },
+        { label: 'What I own', icon: 'wallet', view: 'owned', count: s.owned.reduce((t, g) => t + g.lines.length, 0) },
+        { label: 'What I owe', icon: 'card', view: 'owed', count: s.owed.reduce((t, g) => t + g.lines.length, 0) },
+      ],
+      manage: [
+        { label: 'Snapshot history', icon: 'history' },
+        { label: 'Export report', icon: 'download' },
+      ],
+      assist: [],
+      footer: {
+        icon: 'trending',
+        title: 'Debt-to-asset',
+        text: `You owe ${Math.round(ratio * 1000) / 10}% of what you own.`,
+        progress: 1 - ratio,
+      },
+    };
+  }
+
+  private dashboardMenu(): SideMenu {
+    const period = this.data.currentPeriod();
+    const { day, of } = this.data.periodDay();
+    const bills = this.data.pendingBills();
+    return {
+      eyebrow: 'Overview',
+      title: 'Your finances',
+      blurb: 'Every chart is built from the same accounts, budgets and goals as the other pages.',
+      newLabel: 'Add transaction',
+      views: [],
+      manage: [
+        { label: 'Take net worth snapshot', icon: 'history' },
+        { label: 'Import CSV', icon: 'upload' },
+      ],
+      assist: [],
+      footer: {
+        icon: 'calendar',
+        title: 'Period close',
+        text: `${period.label} closes in ${of - day} days. ${bills} bill${bills === 1 ? '' : 's'} still pending.`,
+        progress: this.data.periodProgress(),
+      },
+    };
+  }
+
+  private transactionsMenu(): SideMenu {
+    const rows = this.data.transactions();
+    const imports = this.data.csvImports();
+    const failed = imports.filter((i) => i.status === 'failed').length;
+    const imported = rows.filter((t) => t.source).length;
+    return {
+      eyebrow: 'Money',
+      title: 'Transactions & imports',
+      blurb: 'CSV imports land here as transactions; filter by account to see one at a time.',
+      newLabel: 'Add transaction',
+      views: [
+        { label: 'All transactions', icon: 'inbox', count: rows.length },
+        { label: 'Imported', icon: 'upload', view: 'imported', count: imported },
+        { label: 'Entered by hand', icon: 'plus', view: 'manual', count: rows.length - imported },
+        {
+          label: 'Import history',
+          icon: 'history',
+          view: 'imports',
+          count: imports.length,
+          tone: failed ? 'crit' : undefined,
+        },
+      ],
+      manage: [
+        { label: 'Import CSV', icon: 'upload' },
+        { label: 'Categorize', icon: 'layers' },
+      ],
+      assist: [{ label: 'Import formats', icon: 'sliders' }],
+      footer: failed
+        ? {
+            icon: 'alert',
+            title: 'Imports',
+            text: `${failed} import${failed === 1 ? '' : 's'} failed. Check Import history.`,
+            progress: (imports.length - failed) / imports.length,
+          }
+        : undefined,
     };
   }
 }

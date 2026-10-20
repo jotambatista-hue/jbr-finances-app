@@ -4,6 +4,8 @@ export interface Section {
   path: string;
   label: string;
   icon: IconName;
+  /** Shown as two stacked words in the top bar instead of `label`. */
+  stacked?: [string, string];
 }
 
 /** Top-level modules, in top-bar order. */
@@ -14,7 +16,11 @@ export const SECTIONS: Section[] = [
   { path: 'budgets', label: 'Budgets', icon: 'budget' },
   { path: 'goals', label: 'Goals', icon: 'goal' },
   { path: 'bills', label: 'Bills', icon: 'bill' },
-  { path: 'insurance', label: 'Insurance', icon: 'shield' },
+  {
+    path: 'investments',
+    label: 'Investments & Insurance',
+    icon: 'chart',
+    stacked: ['Investments', 'Insurance'],
+  },
   { path: 'net-worth', label: 'Net worth', icon: 'trending' },
-  { path: 'imports', label: 'Imports', icon: 'upload' },
 ];

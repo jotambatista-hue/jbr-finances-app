@@ -1,0 +1,173 @@
+@let s = sheet();
+
+<div class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Home</span><span>/</span><span>Wealth</span><span>/</span><span aria-current="page">Net worth</span>
+    </nav>
+    <p class="eyebrow">Detail report · as of {{ asOf() | date: 'MMMM d, y' }}</p>
+    <h1>Net worth · {{ s.netWorth | currency: 'USD' : 'symbol' : '1.0-0' }}</h1>
+    <p class="lede">Everything you own, everything you owe, and the difference between them.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-ghost" type="button" (click)="print()"><app-icon name="download" [size]="16" /> Print / PDF</button>
+    <button class="btn btn-primary" type="button"><app-icon name="history" [size]="16" /> Take snapshot</button>
+  </div>
+</div>
+
+<section class="kpi-grid" aria-label="Summary">
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-good"><app-icon name="wallet" /></span>
+    <div>
+      <span class="kpi-label">Total owned</span>
+      <span class="kpi-value">{{ s.totalOwned | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ s.owned.length }} groups</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-crit"><app-icon name="card" /></span>
+    <div>
+      <span class="kpi-label">Total owed</span>
+      <span class="kpi-value">{{ s.totalOwed | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">{{ debtRatio() | percent: '1.1-1' }} of what you own</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon"><app-icon name="trending" /></span>
+    <div>
+      <span class="kpi-label">Net worth</span>
+      <span class="kpi-value">{{ s.netWorth | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+      <span class="kpi-sub">owned − owed</span>
+    </div>
+  </div>
+  <div class="kpi">
+    <span class="kpi-icon kpi-icon-info"><app-icon name="history" /></span>
+    <div>
+      <span class="kpi-label">Since last month-end</span>
+      @if (change(); as c) {
+        <span class="kpi-value">{{ c.change >= 0 ? '+' : '−' }}{{ (c.change < 0 ? -c.change : c.change) | currency: 'USD' : 'symbol' : '1.0-0' }}</span>
+        <span class="kpi-sub">vs. {{ c.value | currency: 'USD' : 'symbol' : '1.0-0' }} at end of {{ c.month + '-01' | date: 'MMM' }}</span>
+      } @else {
+        <span class="kpi-value">—</span>
+        <span class="kpi-sub">No history yet</span>
+      }
+    </div>
+  </div>
+</section>
+
+<div class="report-grid">
+  @if (showOwned()) {
+    <section class="table-card" aria-labelledby="owned-title">
+      <div class="card-head">
+        <h2 id="owned-title">What I own</h2>
+        <span class="muted">Assets</span>
+      </div>
+      <table class="data-table report-table">
+        <thead>
+          <tr>
+            <th scope="col">Item</th>
+            <th scope="col" class="num">Amount</th>
+            <th scope="col" class="num">Share</th>
+          </tr>
+        </thead>
+        @for (g of s.owned; track g.key) {
+          <tbody>
+            <tr class="group-row">
+              <th scope="rowgroup">{{ g.label }}</th>
+              <td class="num">{{ g.total | currency }}</td>
+              <td class="num">{{ g.total / s.totalOwned | percent: '1.1-1' }}</td>
+            </tr>
+            @for (l of g.lines; track l.id) {
+              <tr>
+                <td class="indent">
+                  <span class="cell-title">{{ l.name }}</span>
+                  <span class="cell-sub">{{ l.detail }}</span>
+                </td>
+                <td class="num">{{ l.amount | currency }}</td>
+                <td class="num muted">{{ l.amount / s.totalOwned | percent: '1.1-1' }}</td>
+              </tr>
+            }
+          </tbody>
+        }
+        <tfoot>
+          <tr class="total-row">
+            <th scope="row">Total owned</th>
+            <td class="num">{{ s.totalOwned | currency }}</td>
+            <td class="num">100%</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+  }
+
+  @if (showOwed()) {
+    <section class="table-card" aria-labelledby="owed-title">
+      <div class="card-head">
+        <h2 id="owed-title">What I owe</h2>
+        <span class="muted">Liabilities</span>
+      </div>
+      <table class="data-table report-table">
+        <thead>
+          <tr>
+            <th scope="col">Item</th>
+            <th scope="col" class="num">Amount</th>
+            <th scope="col" class="num">Share</th>
+          </tr>
+        </thead>
+        @for (g of s.owed; track g.key) {
+          <tbody>
+            <tr class="group-row">
+              <th scope="rowgroup">{{ g.label }}</th>
+              <td class="num">{{ g.total | currency }}</td>
+              <td class="num">{{ g.total / s.totalOwed | percent: '1.1-1' }}</td>
+            </tr>
+            @for (l of g.lines; track l.id) {
+              <tr>
+                <td class="indent">
+                  <span class="cell-title">{{ l.name }}</span>
+                  <span class="cell-sub">{{ l.detail }}</span>
+                </td>
+                <td class="num">{{ l.amount | currency }}</td>
+                <td class="num muted">{{ l.amount / s.totalOwed | percent: '1.1-1' }}</td>
+              </tr>
+            }
+          </tbody>
+        } @empty {
+          <tbody>
+            <tr>
+              <td colspan="3" class="empty">Nothing owed.</td>
+            </tr>
+          </tbody>
+        }
+        <tfoot>
+          <tr class="total-row">
+            <th scope="row">Total owed</th>
+            <td class="num">{{ s.totalOwed | currency }}</td>
+            <td class="num">100%</td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
+  }
+</div>
+
+<section class="table-card calc-card" aria-labelledby="calc-title">
+  <div class="card-head">
+    <h2 id="calc-title">Calculation</h2>
+    <span class="muted">as of {{ asOf() | date: 'MMM d, y' }}</span>
+  </div>
+  <dl class="calc">
+    <div>
+      <dt>Total owned</dt>
+      <dd>{{ s.totalOwned | currency }}</dd>
+    </div>
+    <div>
+      <dt>Less: total owed</dt>
+      <dd class="negative">−{{ s.totalOwed | currency }}</dd>
+    </div>
+    <div class="calc-result">
+      <dt>Net worth</dt>
+      <dd>{{ s.netWorth | currency }}</dd>
+    </div>
+  </dl>
+</section>
