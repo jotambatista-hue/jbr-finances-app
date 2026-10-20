@@ -62,6 +62,7 @@
   </div>
   <div class="dash-body">
     @let nw = netWorthChart();
+    @if (nw.hasData) {
     <app-chart
       [labels]="nw.labels"
       [titles]="nw.titles"
@@ -71,6 +72,9 @@
       [tickFormat]="compact"
       ariaLabel="Owned, owed and net worth by month"
     />
+    } @else {
+      <p class="empty">Nothing to chart yet. Add accounts and balances to see owned vs. owed.</p>
+    }
   </div>
 </section>
 
@@ -120,7 +124,7 @@
           </div>
         </div>
         <ul class="dist-list">
-          @for (r of bm.rows; track r.categoryId) {
+          @for (r of bm.rows; track r.categoryId + r.month) {
             @let tone = budgetStatus[r.status].tone;
             <li>
               <span class="dist-name">{{ r.name }}</span>
@@ -130,6 +134,8 @@
               <span class="dist-value">{{ r.actual | currency: 'USD' : 'symbol' : '1.0-0' }} <small>/ {{ r.budgeted | currency: 'USD' : 'symbol' : '1.0-0' }}</small></span>
               <span [class]="'pill pill-' + tone">{{ budgetStatus[r.status].label }}</span>
             </li>
+          } @empty {
+            <li class="empty">No budgets for {{ monthLabel(selectedBudgetMonth()) }} yet.</li>
           }
         </ul>
       } @else {
@@ -139,7 +145,8 @@
           <div><span>Actual</span><strong>{{ by.actual | currency: 'USD' : 'symbol' : '1.0-0' }}</strong></div>
           <div><span>Months over budget</span><strong>{{ by.monthsOver }} of {{ by.monthCount }}</strong></div>
         </div>
-        <app-chart
+        @if (by.labels.length) {
+<app-chart
           [labels]="by.labels"
           [titles]="by.titles"
           [series]="by.series"
@@ -147,6 +154,9 @@
           [tickFormat]="compact"
           [ariaLabel]="'Budgeted vs. actual by month, ' + selectedBudgetYear()"
         />
+        } @else {
+          <p class="empty">No budgets for {{ selectedBudgetYear() }} yet.</p>
+        }
       }
     </div>
   </section>
@@ -181,6 +191,8 @@
             <span class="dist-value">{{ g.progress | percent }}</span>
             <span [class]="'pill pill-' + tone">{{ goalStatus[g.status].label }}</span>
           </li>
+        } @empty {
+          <li class="empty">No goals yet.</li>
         }
       </ul>
       @let gc = goalChart();
@@ -226,6 +238,9 @@
       Distribution
       <span class="muted">{{ d.total | currency: 'USD' : 'symbol' : '1.0-0' }} · {{ d.retirementShare | percent }} in retirement accounts</span>
     </h3>
+    @if (!d.items.length) {
+      <p class="empty">No investment accounts yet.</p>
+    }
     <div class="stackbar" role="img" [attr.aria-label]="'Investment distribution across ' + d.items.length + ' accounts'">
       @for (i of d.items; track i.id) {
         <span [style.flex-grow]="i.share" [style.background]="i.color" [title]="i.name + ': ' + money(i.balance)"></span>
@@ -250,6 +265,12 @@
         ({{ granularity() === 'month' ? 'last 12 months' : 'all history' }})
       </span>
     </h3>
+    @if (!p.periods.length) {
+      <p class="empty">
+        Performance needs at least two month-end balances per account. They'll appear as balance
+        snapshots are recorded.
+      </p>
+    } @else {
     <div class="dash-pair">
       <div>
         <p class="chart-title">Change in value</p>
@@ -275,5 +296,6 @@
         />
       </div>
     </div>
+    }
   </div>
 </section>

@@ -163,4 +163,24 @@ export interface NetWorthSnapshot {
   id: string;
   date: string;
   totalValue: number;
+  /** JSON, expected shape {"owned": number, "owed": number}. */
+  breakdown: string | null;
+}
+
+export interface AccountBalanceSnapshot {
+  id: string;
+  accountId: string;
+  asOfDate: string;
+  balance: number;
+  /** Money added minus withdrawn since the previous snapshot; null when unknown. */
+  netContributions: number | null;
+}
+
+/** One row of GET /api/reports/budget-vs-actual. */
+export interface BudgetActual {
+  periodId: string;
+  periodStart: string;
+  categoryId: string;
+  budgeted: number;
+  actual: number;
 }

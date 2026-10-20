@@ -2,24 +2,8 @@
  * Stand-in for the aggregate queries the dashboard will run against SQL Server
  * (month-end balances, budget vs. actual per month, ...). Generated
  * deterministically so it lines up with today's live mock balances: the last
- * month of every series equals the current value.
+ * month of every series equals the current value. Only MockDataSource uses this.
  */
-
-/** Month keys ('YYYY-MM') from January 2025 through the current month. */
-export function monthKeys(asOf: string, from = '2025-01'): string[] {
-  const keys: string[] = [];
-  let [y, m] = from.split('-').map(Number);
-  const [ey, em] = asOf.slice(0, 7).split('-').map(Number);
-  while (y < ey || (y === ey && m <= em)) {
-    keys.push(`${y}-${String(m).padStart(2, '0')}`);
-    m++;
-    if (m > 12) {
-      m = 1;
-      y++;
-    }
-  }
-  return keys;
-}
 
 /** Small deterministic PRNG so the generated history never changes between loads. */
 function prng(seed: number) {
