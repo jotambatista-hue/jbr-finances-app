@@ -134,6 +134,37 @@ describe('FinanceDataService adding', () => {
   });
 });
 
+describe('FinanceDataService categories', () => {
+  it('adds, renames and deletes an unused category', async () => {
+    const data = TestBed.inject(FinanceDataService);
+    const find = () => data.categories().find((c) => c.name.startsWith('Pets'));
+    expect(await data.saveCategory({ name: ' Pets ', type: 'expense', parentId: 'grp-life' })).toBeNull();
+    expect(find()).toMatchObject({ name: 'Pets', parentName: 'Lifestyle', usage: 0 });
+    expect(await data.saveCategory({ ...find()!, name: 'Pets & vet' })).toBeNull();
+    expect(find()!.name).toBe('Pets & vet');
+    expect(await data.deleteCategory(find()!.id)).toBeNull();
+    expect(find()).toBeUndefined();
+  });
+
+  it('keeps categories two levels deep and types consistent', () => {
+    const data = TestBed.inject(FinanceDataService);
+    expect(data.categoryProblem({ name: 'Rent', type: 'expense', parentId: 'cat-housing' })).toMatch(/one level/);
+    expect(data.categoryProblem({ name: 'Tips', type: 'income', parentId: 'grp-ess' })).toMatch(/expense group/);
+    expect(data.categoryProblem({ id: 'grp-ess', name: 'Essentials', type: 'expense', parentId: 'grp-life' })).toMatch(
+      /can’t go inside/,
+    );
+    expect(data.categoryProblem({ name: 'groceries', type: 'expense', parentId: 'grp-ess' })).toMatch(/already/);
+    expect(data.categoryProblem({ name: 'Groceries', type: 'expense', parentId: 'grp-life' })).toBeNull();
+  });
+
+  it('refuses to delete a group with categories or a category in use', async () => {
+    const data = TestBed.inject(FinanceDataService);
+    expect(await data.deleteCategory('grp-ess')).toMatch(/first/);
+    expect(await data.deleteCategory('cat-groceries')).toMatch(/still used/);
+    expect(data.categories().some((c) => c.id === 'cat-groceries')).toBe(true);
+  });
+});
+
 describe('niceTicks', () => {
   it('produces round ticks covering the range', () => {
     expect(niceTicks(0, 243_167)).toEqual([0, 100_000, 200_000, 300_000]);

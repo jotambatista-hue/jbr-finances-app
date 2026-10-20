@@ -1,0 +1,106 @@
+@let c = counts();
+
+<div class="page-head">
+  <div>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <span>Home</span><span>/</span><span>Planning</span><span>/</span><span aria-current="page">Categories</span>
+    </nav>
+    <p class="eyebrow">{{ c.groups }} {{ c.groups === 1 ? 'group' : 'groups' }} · {{ c.categories }} {{ c.categories === 1 ? 'category' : 'categories' }}</p>
+    <h1>{{ title() }}</h1>
+    <p class="lede">What transactions, budgets and bills are filed under. Groups organise the categories inside them.</p>
+  </div>
+  <div class="page-actions">
+    <button class="btn btn-primary" type="button" (click)="editor.open()">
+      <app-icon name="plus" [size]="16" /> New category
+    </button>
+  </div>
+</div>
+
+<section class="table-card" aria-label="Categories">
+  <div class="toolbar">
+    <label class="field">
+      <app-icon name="search" [size]="16" />
+      <input
+        type="search"
+        placeholder="Search categories…"
+        aria-label="Search categories"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+      />
+    </label>
+  </div>
+
+  <div class="table-scroll">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th scope="col">Name</th>
+          <th scope="col">Type</th>
+          <th scope="col" class="num">Used by</th>
+          <th scope="col"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of rows(); track r.id) {
+          @let isTop = r.parentId === null;
+          <tr [class.group-row]="isTop && r.childCount > 0">
+            <td [class.child-cell]="!isTop">
+              <span class="cell-title">{{ r.name }}</span>
+              @if (isTop && r.childCount) {
+                <span class="cell-sub">{{ r.childCount }} {{ r.childCount === 1 ? 'category' : 'categories' }}</span>
+              }
+            </td>
+            <td>
+              <span [class]="'pill pill-' + (r.type === 'income' ? 'good' : 'neutral')">{{ typeLabel[r.type] }}</span>
+            </td>
+            <td class="num muted">{{ r.usage || '—' }}</td>
+            <td class="row-actions">
+              @if (isTop) {
+                <button class="link-btn" type="button" (click)="editor.open(undefined, { type: r.type, parentId: r.id })">
+                  Add inside
+                </button>
+              }
+              <button class="link-btn" type="button" (click)="editor.open(r)">Edit</button>
+              <button class="link-btn link-btn-crit" type="button" (click)="openDelete(r)">Delete</button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4" class="empty">
+              @if (query()) {
+                No categories match “{{ query() }}”.
+              } @else {
+                No categories yet. Add one, or run database/005_seed_categories.sql for a standard set.
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="table-foot">
+    <span>Showing {{ rows().length }} of {{ c.groups + c.categories }}</span>
+    <span class="legend">“Used by” counts loaded transactions, budgets, bills and goals.</span>
+  </div>
+</section>
+
+<app-category-dialog #editor />
+
+<dialog #deleteDialog class="dialog" aria-labelledby="delete-category-title" (close)="deleting.set(null)">
+  @if (deleting(); as row) {
+    <form method="dialog" (submit)="$event.preventDefault(); confirmDelete()">
+      <h2 id="delete-category-title">Delete {{ row.name }}?</h2>
+      <p class="dialog-lede">This can’t be undone. Only categories nothing is filed under can be deleted.</p>
+
+      @if (deleteError(); as error) {
+        <p class="form-error" role="alert">{{ error }}</p>
+      }
+
+      <div class="dialog-actions">
+        <button class="btn btn-ghost" type="button" (click)="closeDelete()">Cancel</button>
+        <button class="btn btn-danger" type="submit" [disabled]="deleteBusy()">Delete</button>
+      </div>
+    </form>
+  }
+</dialog>

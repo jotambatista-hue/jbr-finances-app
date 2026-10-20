@@ -33,6 +33,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/goals/goals-page').then((m) => m.GoalsPage),
   },
   {
+    path: 'categories',
+    title: page('Categories'),
+    loadComponent: () =>
+      import('./features/categories/categories-page').then((m) => m.CategoriesPage),
+  },
+  {
     path: 'bills',
     title: page('Bills'),
     loadComponent: () => import('./features/bills/bills-page').then((m) => m.BillsPage),

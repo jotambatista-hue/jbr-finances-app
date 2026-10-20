@@ -22,6 +22,7 @@ import {
   Budget,
   BudgetActual,
   BudgetPeriod,
+  Category,
   Goal,
   GoalContribution,
   NetWorthSnapshot,
@@ -147,5 +148,17 @@ export class MockDataSource extends DataSource {
 
   async addGoal(row: Omit<Goal, 'id'>) {
     this.goals.update((list) => [...list, { ...row, id: `goal-new-${Date.now()}` }]);
+  }
+
+  async addCategory(row: Omit<Category, 'id'>) {
+    this.categories.update((list) => [...list, { ...row, id: `cat-new-${Date.now()}` }]);
+  }
+
+  async updateCategory(row: Category) {
+    this.categories.update((list) => list.map((c) => (c.id === row.id ? row : c)));
+  }
+
+  async deleteCategory(id: string) {
+    this.categories.update((list) => list.filter((c) => c.id !== id));
   }
 }

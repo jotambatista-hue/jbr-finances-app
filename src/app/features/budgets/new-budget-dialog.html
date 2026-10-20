@@ -42,9 +42,15 @@
         </div>
       </label>
     } @else if (hasCategories()) {
-      <p class="dialog-lede">Every expense category already has a budget for {{ period().label }}.</p>
+      <p class="dialog-lede">
+        Every expense category already has a budget for {{ period().label }}.
+        <a class="link-btn" routerLink="/categories">Manage categories</a>
+      </p>
     } @else {
-      <p class="dialog-lede">There are no expense categories yet. Add some before creating a budget.</p>
+      <p class="dialog-lede">
+        There are no expense categories yet. <a class="link-btn" routerLink="/categories">Add some</a> before
+        creating a budget.
+      </p>
     }
 
     @if (error(); as message) {

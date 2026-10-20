@@ -6,6 +6,8 @@ export interface Section {
   icon: IconName;
   /** Shown as two stacked words in the top bar instead of `label`. */
   stacked?: [string, string];
+  /** Has its own page and sidebar but no top-bar link (reached from another module). */
+  hidden?: boolean;
 }
 
 /** Top-level modules, in top-bar order. */
@@ -23,4 +25,5 @@ export const SECTIONS: Section[] = [
     stacked: ['Investments', 'Insurance'],
   },
   { path: 'net-worth', label: 'Net worth', icon: 'trending' },
+  { path: 'categories', label: 'Categories', icon: 'layers', hidden: true },
 ];

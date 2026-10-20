@@ -15,14 +15,21 @@ interface SideView {
   tone?: 'warn' | 'crit';
 }
 
+interface SideAction {
+  label: string;
+  icon: IconName;
+  /** Route to open; without one the item is a placeholder button. */
+  link?: string;
+}
+
 interface SideMenu {
   eyebrow: string;
   title: string;
   blurb: string;
   newLabel: string;
   views: SideView[];
-  manage: { label: string; icon: IconName }[];
-  assist: { label: string; icon: IconName }[];
+  manage: SideAction[];
+  assist: SideAction[];
   footer?: { icon: IconName; title: string; text: string; progress: number };
 }
 
@@ -37,7 +44,7 @@ export class App {
   private readonly data = inject(FinanceDataService);
   protected readonly status = this.data.status;
 
-  protected readonly sections = SECTIONS;
+  protected readonly sections = SECTIONS.filter((s) => !s.hidden);
 
   private readonly url = toSignal(
     this.router.events.pipe(
@@ -74,6 +81,8 @@ export class App {
         return this.investmentsMenu();
       case 'net-worth':
         return this.netWorthMenu();
+      case 'categories':
+        return this.categoriesMenu();
       default:
         return {
           eyebrow: this.section().label,
@@ -151,6 +160,7 @@ export class App {
         },
       ],
       manage: [
+        { label: 'Categories', icon: 'layers', link: '/categories' },
         { label: 'Adjust a budget', icon: 'sliders' },
         { label: 'Copy last month', icon: 'copy' },
         { label: 'Close period', icon: 'lock' },
@@ -286,6 +296,30 @@ export class App {
     };
   }
 
+  private categoriesMenu(): SideMenu {
+    const rows = this.data.categories();
+    const unused = rows.filter((c) => !c.usage && !c.childCount).length;
+    return {
+      eyebrow: 'Planning',
+      title: 'Categories',
+      blurb: 'Shared by transactions, budgets, bills and goals. Rename freely; delete only what nothing uses.',
+      newLabel: 'New category',
+      views: [
+        { label: 'All categories', icon: 'inbox', count: rows.length },
+        { label: 'Expense', icon: 'budget', view: 'expense', count: rows.filter((c) => c.type === 'expense').length },
+        { label: 'Income', icon: 'cash', view: 'income', count: rows.filter((c) => c.type === 'income').length },
+      ],
+      manage: [],
+      assist: [],
+      footer: {
+        icon: 'layers',
+        title: 'In use',
+        text: `${rows.length - unused} of ${rows.length} categories have something filed under them.`,
+        progress: rows.length ? (rows.length - unused) / rows.length : 0,
+      },
+    };
+  }
+
   private dashboardMenu(): SideMenu {
     const period = this.data.currentPeriod();
     const { day, of } = this.data.periodDay();
@@ -335,6 +369,7 @@ export class App {
       manage: [
         { label: 'Import CSV', icon: 'upload' },
         { label: 'Categorize', icon: 'layers' },
+        { label: 'Categories', icon: 'layers', link: '/categories' },
       ],
       assist: [{ label: 'Import formats', icon: 'sliders' }],
       footer: failed

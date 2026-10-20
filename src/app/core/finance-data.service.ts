@@ -7,6 +7,7 @@ import {
   BillOccurrence,
   BudgetAdjustment,
   BudgetPeriod,
+  Category,
   LifeKind,
   Transaction,
 } from './models';
@@ -119,6 +120,13 @@ export interface BudgetRow {
   ratio: number;
   status: BudgetStatus;
   adjustments: BudgetAdjustment[];
+}
+
+export interface CategoryRow extends Category {
+  parentName: string | null;
+  childCount: number;
+  /** Loaded transactions, budgets, bills and goals that point at it. */
+  usage: number;
 }
 
 export interface GoalRow {
@@ -303,6 +311,73 @@ export class FinanceDataService {
         .billOccurrences()
         .filter((b) => b.periodId === this.currentPeriod().id && b.status === 'pending').length,
   );
+
+  readonly categories = computed<CategoryRow[]>(() => {
+    const all = this.src.categories();
+    const uses = new Map<string, number>();
+    const count = (id: string | null) => id && uses.set(id, (uses.get(id) ?? 0) + 1);
+    for (const t of this.src.transactions()) count(t.categoryId);
+    for (const b of this.src.budgets()) count(b.categoryId);
+    for (const a of this.src.budgetAdjustments()) count(a.categoryId);
+    for (const r of this.src.recurringPayments()) count(r.categoryId);
+    for (const g of this.src.goals()) count(g.categoryId);
+    return all.map((c) => ({
+      ...c,
+      parentName: all.find((p) => p.id === c.parentId)?.name ?? null,
+      childCount: all.filter((x) => x.parentId === c.id).length,
+      usage: uses.get(c.id) ?? 0,
+    }));
+  });
+
+  /**
+   * Why a category can't be saved as given, or null if it can. Categories are
+   * two levels deep: a group can't sit inside another group, and a category
+   * shares its group's type.
+   */
+  categoryProblem(row: Omit<Category, 'id'> & { id?: string }): string | null {
+    const all = this.src.categories();
+    const name = row.name.trim();
+    if (!name) return 'Enter a name.';
+    if (name.length > 100) return 'Names can be up to 100 characters.';
+    const children = row.id ? all.filter((c) => c.parentId === row.id) : [];
+    if (row.parentId) {
+      const parent = all.find((c) => c.id === row.parentId);
+      if (!parent || parent.id === row.id) return 'Choose a valid group.';
+      if (parent.parentId !== null) return 'Groups can only be one level deep.';
+      if (children.length) return 'This is a group with its own categories, so it can’t go inside another group.';
+      if (parent.type !== row.type) return `${parent.name} is an ${parent.type} group.`;
+    }
+    if (children.some((c) => c.type !== row.type)) return 'A group and its categories must have the same type.';
+    const lower = name.toLowerCase();
+    const clash = all.some(
+      (c) => c.id !== row.id && c.parentId === row.parentId && c.type === row.type && c.name.toLowerCase() === lower,
+    );
+    return clash ? 'There’s already a category with that name here.' : null;
+  }
+
+  /** Adds (no id) or updates a category. Resolves with why it wasn't saved, or null. */
+  async saveCategory(row: Omit<Category, 'id'> & { id?: string }): Promise<string | null> {
+    const problem = this.categoryProblem(row);
+    if (problem) return problem;
+    const clean = { parentId: row.parentId || null, name: row.name.trim(), type: row.type };
+    if (row.id) await this.src.updateCategory({ ...clean, id: row.id });
+    else await this.src.addCategory(clean);
+    return null;
+  }
+
+  /** Deletes an unused category. Resolves with why it wasn't deleted, or null. */
+  async deleteCategory(id: string): Promise<string | null> {
+    const row = this.categories().find((c) => c.id === id);
+    if (!row) return 'That category no longer exists.';
+    if (row.childCount) {
+      return `Move or delete its ${row.childCount} ${row.childCount === 1 ? 'category' : 'categories'} first.`;
+    }
+    if (row.usage) {
+      return `It’s still used by ${row.usage} ${row.usage === 1 ? 'record' : 'records'} (transactions, budgets, bills or goals).`;
+    }
+    await this.src.deleteCategory(id);
+    return null;
+  }
 
   categoryName(id: string) {
     return this.src.categories().find((c) => c.id === id)?.name ?? 'Uncategorized';
