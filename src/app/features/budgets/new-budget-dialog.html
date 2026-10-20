@@ -1,0 +1,59 @@
+<dialog #dialog class="dialog" aria-labelledby="new-budget-title">
+  <form method="dialog" (submit)="$event.preventDefault(); save()">
+    <h2 id="new-budget-title">New budget</h2>
+    <p class="dialog-lede">Set a spending target for a category in {{ period().label }}.</p>
+
+    @if (groups().length) {
+      <label class="form-row">
+        <span>Category</span>
+        <select [value]="categoryId()" (change)="categoryId.set($any($event.target).value)">
+          @for (g of groups(); track g.name) {
+            <optgroup [label]="g.name">
+              @for (c of g.categories; track c.id) {
+                <option [value]="c.id" [selected]="c.id === categoryId()">{{ c.name }}</option>
+              }
+            </optgroup>
+          }
+        </select>
+      </label>
+
+      <label class="form-row">
+        <span>Amount</span>
+        <div class="field">
+          <span aria-hidden="true">$</span>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            required
+            [value]="amount() || ''"
+            (input)="amount.set(+$any($event.target).value)"
+          />
+        </div>
+        @if (lastMonth(); as last) {
+          <small>Spent {{ last.actual | currency: 'USD' : 'symbol' : '1.0-0' }} in {{ last.label }}</small>
+        }
+      </label>
+
+      <label class="form-row">
+        <span>Notes <small>(optional)</small></span>
+        <div class="field">
+          <input type="text" maxlength="500" [value]="notes()" (input)="notes.set($any($event.target).value)" />
+        </div>
+      </label>
+    } @else if (hasCategories()) {
+      <p class="dialog-lede">Every expense category already has a budget for {{ period().label }}.</p>
+    } @else {
+      <p class="dialog-lede">There are no expense categories yet. Add some before creating a budget.</p>
+    }
+
+    @if (error(); as message) {
+      <p class="form-error" role="alert">{{ message }}</p>
+    }
+
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" type="button" (click)="close()">Cancel</button>
+      <button class="btn btn-primary" type="submit" [disabled]="!valid() || saving()">Add budget</button>
+    </div>
+  </form>
+</dialog>

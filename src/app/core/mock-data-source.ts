@@ -17,7 +17,15 @@ import {
   RECURRING_PAYMENTS,
   TRANSACTIONS,
 } from './mock-data';
-import { AccountBalanceSnapshot, BudgetActual, GoalContribution, NetWorthSnapshot } from './models';
+import {
+  AccountBalanceSnapshot,
+  Budget,
+  BudgetActual,
+  BudgetPeriod,
+  Goal,
+  GoalContribution,
+  NetWorthSnapshot,
+} from './models';
 
 const HISTORY_START = '2025-01';
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -124,5 +132,20 @@ export class MockDataSource extends DataSource {
   async addGoalContributions(rows: Omit<GoalContribution, 'id'>[]) {
     const stamp = Date.now();
     this.contributions.update((list) => [...list, ...rows.map((r, i) => ({ ...r, id: `gc-new-${stamp}-${i}` }))]);
+  }
+
+  async addBudgetPeriod(row: Omit<BudgetPeriod, 'id'>) {
+    const period = { ...row, id: `per-new-${Date.now()}` };
+    this.budgetPeriods.update((list) => [...list, period]);
+    return period;
+  }
+
+  async addBudget(row: Omit<Budget, 'id' | 'updatedAt'>) {
+    const budget = { ...row, id: `bud-new-${Date.now()}`, updatedAt: new Date().toISOString() };
+    this.budgets.update((list) => [...list, budget]);
+  }
+
+  async addGoal(row: Omit<Goal, 'id'>) {
+    this.goals.update((list) => [...list, { ...row, id: `goal-new-${Date.now()}` }]);
   }
 }

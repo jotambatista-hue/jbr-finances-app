@@ -8,6 +8,7 @@ import {
   NEARING_LIMIT_RATIO,
 } from '../../core/finance-data.service';
 import { Icon } from '../../shared/icon';
+import { NewBudgetDialog } from './new-budget-dialog';
 
 const SORTS = [
   { label: '% used', compare: (a: BudgetRow, b: BudgetRow) => b.ratio - a.ratio },
@@ -17,7 +18,7 @@ const SORTS = [
 
 @Component({
   selector: 'app-budgets-page',
-  imports: [CurrencyPipe, PercentPipe, Icon],
+  imports: [CurrencyPipe, PercentPipe, Icon, NewBudgetDialog],
   templateUrl: './budgets-page.html',
 })
 export class BudgetsPage {
