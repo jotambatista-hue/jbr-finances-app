@@ -9,6 +9,7 @@ import {
   goalViews,
 } from '../../core/finance-data.service';
 import { Icon } from '../../shared/icon';
+import { NewGoalDialog } from './new-goal-dialog';
 
 const SORTS = [
   { label: 'Due date', compare: (a: GoalRow, b: GoalRow) => a.targetDate.localeCompare(b.targetDate) },
@@ -19,7 +20,7 @@ const SORTS = [
 
 @Component({
   selector: 'app-goals-page',
-  imports: [CurrencyPipe, DatePipe, PercentPipe, Icon],
+  imports: [CurrencyPipe, DatePipe, PercentPipe, Icon, NewGoalDialog],
   templateUrl: './goals-page.html',
 })
 export class GoalsPage {

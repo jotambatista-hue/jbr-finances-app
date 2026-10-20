@@ -58,6 +58,10 @@ export abstract class DataSource {
 
   /** Saves new goal contributions (e.g. both halves of a divert) and refreshes them. */
   abstract addGoalContributions(rows: Omit<GoalContribution, 'id'>[]): Promise<void>;
+  /** Saves a new budget period and resolves with it, id included. */
+  abstract addBudgetPeriod(row: Omit<BudgetPeriod, 'id'>): Promise<BudgetPeriod>;
+  abstract addBudget(row: Omit<Budget, 'id' | 'updatedAt'>): Promise<void>;
+  abstract addGoal(row: Omit<Goal, 'id'>): Promise<void>;
 }
 
 /** Local calendar date as 'YYYY-MM-DD'. */
@@ -116,10 +120,35 @@ export class ApiDataSource extends DataSource {
     errors: this.resources.filter((r) => r.ref.error()).map((r) => describe(r.path, r.ref.error())),
   }));
 
+  private reload(path: string) {
+    this.resources.find((r) => r.path === path)?.ref.reload();
+  }
+
+  /** POSTs one row and reloads the matching list; resolves with the saved row. */
+  private async create<T>(path: string, row: unknown): Promise<T> {
+    const saved = await firstValueFrom(this.http.post<T>(`${this.base}/${path}`, row));
+    this.reload(path);
+    return saved;
+  }
+
   async addGoalContributions(rows: Omit<GoalContribution, 'id'>[]) {
     for (const row of rows) {
       await firstValueFrom(this.http.post(`${this.base}/goal-contributions`, row));
     }
-    this.resources.find((r) => r.path === 'goal-contributions')?.ref.reload();
+    this.reload('goal-contributions');
+  }
+
+  addBudgetPeriod(row: Omit<BudgetPeriod, 'id'>) {
+    return this.create<BudgetPeriod>('budget-periods', row);
+  }
+
+  async addBudget(row: Omit<Budget, 'id' | 'updatedAt'>) {
+    await this.create('budgets', row);
+    // The report only lists categories that have a budget, so it changes too.
+    this.reload('reports/budget-vs-actual');
+  }
+
+  async addGoal(row: Omit<Goal, 'id'>) {
+    await this.create('goals', row);
   }
 }

@@ -11,7 +11,9 @@
   </div>
   <div class="page-actions">
     <button class="btn btn-ghost" type="button"><app-icon name="plus" [size]="16" /> Add contribution</button>
-    <button class="btn btn-primary" type="button"><app-icon name="plus" [size]="16" /> New goal</button>
+    <button class="btn btn-primary" type="button" (click)="newGoal.open()">
+      <app-icon name="plus" [size]="16" /> New goal
+    </button>
   </div>
 </div>
 
@@ -228,3 +230,5 @@
     </form>
   }
 </dialog>
+
+<app-new-goal-dialog #newGoal />

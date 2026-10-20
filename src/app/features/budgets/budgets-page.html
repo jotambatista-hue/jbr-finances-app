@@ -13,7 +13,9 @@
   </div>
   <div class="page-actions">
     <button class="btn btn-ghost" type="button"><app-icon name="sliders" [size]="16" /> Adjust</button>
-    <button class="btn btn-primary" type="button"><app-icon name="plus" [size]="16" /> New budget</button>
+    <button class="btn btn-primary" type="button" (click)="newBudget.open()">
+      <app-icon name="plus" [size]="16" /> New budget
+    </button>
   </div>
 </div>
 
@@ -178,3 +180,5 @@
     </span>
   </div>
 </section>
+
+<app-new-budget-dialog #newBudget />

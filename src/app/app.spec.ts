@@ -6,6 +6,7 @@ import { budgetStatus, FinanceDataService, goalStatus } from './core/finance-dat
 import { niceTicks } from './shared/chart';
 import { DataSource } from './core/data-source';
 import { MockDataSource } from './core/mock-data-source';
+import { BUDGETS } from './core/mock-data';
 
 // Every test runs against the built-in sample data, pinned to Oct 19, 2026.
 beforeEach(() => {
@@ -101,6 +102,38 @@ describe('FinanceDataService goals', () => {
   });
 });
 
+describe('FinanceDataService adding', () => {
+  class NoSubscriptionsBudget extends MockDataSource {
+    override readonly budgets = signal(BUDGETS.filter((b) => b.categoryId !== 'cat-subs'));
+  }
+
+  it('adds a budget for a category without one and removes it from the choices', async () => {
+    TestBed.configureTestingModule({ providers: [{ provide: DataSource, useClass: NoSubscriptionsBudget }] });
+    const data = TestBed.inject(FinanceDataService);
+    const open = () => data.unbudgetedCategories().flatMap((g) => g.categories.map((c) => c.id));
+    // Groups and categories that already have a budget aren't offered.
+    expect(open()).toEqual(['cat-subs']);
+    expect(await data.addBudget('cat-subs', 70, '  ')).toBe(true);
+    const row = data.budgets().find((b) => b.categoryName === 'Subscriptions')!;
+    expect(row).toMatchObject({ amount: 70, originalAmount: 70, revision: 0 });
+    expect(open()).toEqual([]);
+    expect(await data.addBudget('cat-subs', 50, null)).toBe(false);
+  });
+
+  it('refuses a category that already has a budget', async () => {
+    expect(await TestBed.inject(FinanceDataService).addBudget('cat-housing', 100, null)).toBe(false);
+  });
+
+  it('adds a goal and validates its dates', async () => {
+    const data = TestBed.inject(FinanceDataService);
+    const goal = { name: ' Boat ', targetAmount: 1200, startDate: '2026-10-19', targetDate: '2027-10-19' };
+    expect(await data.addGoal({ ...goal, targetDate: '2026-10-01' })).toBe(false);
+    expect(await data.addGoal({ ...goal, name: ' ' })).toBe(false);
+    expect(await data.addGoal(goal)).toBe(true);
+    expect(data.goals().find((g) => g.name === 'Boat')).toMatchObject({ saved: 0, targetAmount: 1200 });
+  });
+});
+
 describe('niceTicks', () => {
   it('produces round ticks covering the range', () => {
     expect(niceTicks(0, 243_167)).toEqual([0, 100_000, 200_000, 300_000]);
@@ -157,6 +190,14 @@ describe('FinanceDataService with no data', () => {
     expect(data.balanceSheet().netWorth).toBe(0);
     expect(data.netWorthChange()).toBeNull();
     expect(data.investmentHistory()).toEqual([]);
+  });
+
+  it('creates the current period before its first budget', async () => {
+    TestBed.configureTestingModule({ providers: [{ provide: DataSource, useClass: EmptySource }] });
+    const data = TestBed.inject(FinanceDataService);
+    expect(await data.addBudget('cat-groceries', 400, null)).toBe(true);
+    expect(data.currentPeriod().id).not.toBe('');
+    expect(data.budgets().map((b) => b.categoryName)).toEqual(['Groceries']);
   });
 
   it('renders the dashboard with no data', async () => {

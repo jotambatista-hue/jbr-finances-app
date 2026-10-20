@@ -1,0 +1,73 @@
+<dialog #dialog class="dialog" aria-labelledby="new-goal-title">
+  <form method="dialog" (submit)="$event.preventDefault(); save()">
+    <h2 id="new-goal-title">New goal</h2>
+    <p class="dialog-lede">
+      Progress is measured against a steady pace from the start date to the due date.
+    </p>
+
+    <label class="form-row">
+      <span>Name</span>
+      <div class="field">
+        <input
+          type="text"
+          maxlength="100"
+          required
+          placeholder="e.g. Emergency fund"
+          [value]="name()"
+          (input)="name.set($any($event.target).value)"
+        />
+      </div>
+    </label>
+
+    <label class="form-row">
+      <span>Target</span>
+      <div class="field">
+        <span aria-hidden="true">$</span>
+        <input
+          type="number"
+          min="1"
+          step="1"
+          required
+          [value]="targetAmount() || ''"
+          (input)="targetAmount.set(+$any($event.target).value)"
+        />
+      </div>
+    </label>
+
+    <div class="form-cols">
+      <label class="form-row">
+        <span>Start saving</span>
+        <div class="field">
+          <input type="date" required [value]="startDate()" (input)="startDate.set($any($event.target).value)" />
+        </div>
+      </label>
+      <label class="form-row">
+        <span>Due</span>
+        <div class="field">
+          <input
+            type="date"
+            required
+            [min]="startDate()"
+            [value]="targetDate()"
+            (input)="targetDate.set($any($event.target).value)"
+          />
+        </div>
+      </label>
+    </div>
+
+    @if (!datesValid()) {
+      <p class="form-error" role="alert">The due date must be after the start date.</p>
+    } @else if (monthly(); as perMonth) {
+      <p class="dialog-lede">About {{ perMonth | currency: 'USD' : 'symbol' : '1.0-0' }} a month to finish on time.</p>
+    }
+
+    @if (error(); as message) {
+      <p class="form-error" role="alert">{{ message }}</p>
+    }
+
+    <div class="dialog-actions">
+      <button class="btn btn-ghost" type="button" (click)="close()">Cancel</button>
+      <button class="btn btn-primary" type="submit" [disabled]="!valid() || saving()">Add goal</button>
+    </div>
+  </form>
+</dialog>

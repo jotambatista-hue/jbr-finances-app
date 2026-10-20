@@ -339,6 +339,52 @@ export class FinanceDataService {
     this.src.categories().filter((c) => c.type === 'expense' && c.parentId === null),
   );
 
+  /**
+   * Expense categories that can still get a budget this period, under their
+   * group. Groups themselves aren't budgeted; a top-level category with no
+   * children is, and is listed under "Other".
+   */
+  readonly unbudgetedCategories = computed(() => {
+    const categories = this.src.categories().filter((c) => c.type === 'expense');
+    const taken = new Set(
+      this.src
+        .budgets()
+        .filter((b) => b.periodId === this.currentPeriod().id)
+        .map((b) => b.categoryId),
+    );
+    const isGroup = (id: string) => categories.some((c) => c.parentId === id);
+    const open = categories.filter((c) => !isGroup(c.id) && !taken.has(c.id));
+    const groups = this.budgetGroups()
+      .filter((g) => isGroup(g.id))
+      .map((g) => ({ name: g.name, categories: open.filter((c) => c.parentId === g.id) }));
+    groups.push({ name: 'Other', categories: open.filter((c) => c.parentId === null) });
+    return groups.filter((g) => g.categories.length);
+  });
+
+  /**
+   * Adds a budget for a category in the current period, creating the period
+   * first if it doesn't exist yet. Resolves false when the request isn't
+   * allowed; rejects if saving fails.
+   */
+  async addBudget(categoryId: string, amount: number, notes: string | null): Promise<boolean> {
+    const allowed = this.unbudgetedCategories().some((g) => g.categories.some((c) => c.id === categoryId));
+    if (!allowed || !(amount > 0)) return false;
+    let periodId = this.currentPeriod().id;
+    if (!periodId) {
+      const { id, ...period } = this.currentPeriod();
+      periodId = (await this.src.addBudgetPeriod(period)).id;
+    }
+    await this.src.addBudget({
+      categoryId,
+      periodId,
+      amount: round2(amount),
+      originalAmount: round2(amount),
+      revision: 0,
+      notes: notes?.trim() || null,
+    });
+    return true;
+  }
+
   readonly goalContributions = this.src.goalContributions;
 
   readonly goals = computed<GoalRow[]>(() => {
@@ -372,6 +418,24 @@ export class FinanceDataService {
       };
     });
   });
+
+  /**
+   * Adds a savings goal. Resolves false when the request isn't allowed
+   * (blank name, no target, due date not after the start); rejects if saving fails.
+   */
+  async addGoal(goal: { name: string; targetAmount: number; startDate: string; targetDate: string }) {
+    const name = goal.name.trim();
+    if (!name || !(goal.targetAmount > 0) || !goal.startDate || !(goal.targetDate > goal.startDate)) return false;
+    await this.src.addGoal({
+      name,
+      targetAmount: round2(goal.targetAmount),
+      startDate: goal.startDate,
+      targetDate: goal.targetDate,
+      categoryId: null,
+      periodId: null,
+    });
+    return true;
+  }
 
   /** Amount a goal can give away without falling off schedule. */
   surplus(goal: GoalRow) {
