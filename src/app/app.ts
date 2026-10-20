@@ -35,6 +35,7 @@ interface SideMenu {
 export class App {
   private readonly router = inject(Router);
   private readonly data = inject(FinanceDataService);
+  protected readonly status = this.data.status;
 
   protected readonly sections = SECTIONS;
 

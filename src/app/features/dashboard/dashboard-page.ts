@@ -76,6 +76,7 @@ export class DashboardPage {
     const all = this.data.netWorthHistory();
     const rows = this.netWorthRange() === 'all' ? all : all.slice(-12);
     return {
+      hasData: rows.some((r) => r.owned !== 0 || r.owed !== 0),
       labels: rows.map((r) => monthShort.format(toDate(r.month)) + (r.month.endsWith('-01') ? ` ’${r.month.slice(2, 4)}` : '')),
       titles: rows.map((r) => monthLong.format(toDate(r.month)) + (r.month === this.currentMonth() ? ' (to date)' : '')),
       series: [
@@ -207,7 +208,11 @@ export class DashboardPage {
   private investmentPeriods(granularity: Granularity) {
     const history = this.data.investmentHistory();
     const months = this.data.months();
-    const totalAt = (i: number) => history.reduce((t, h) => t + h.months[i].balance, 0);
+    // Null when no account has a balance for that month yet.
+    const totalAt = (i: number) => {
+      const known = history.map((h) => h.months[i].balance).filter((b): b is number => b !== null);
+      return known.length ? known.reduce((t, b) => t + b, 0) : null;
+    };
     const contribAt = (i: number) => history.reduce((t, h) => t + h.months[i].contribution, 0);
     const keyOf = (m: string) => {
       const [y, mo] = m.split('-').map(Number);
@@ -223,14 +228,16 @@ export class DashboardPage {
       if (p && p.key === key) p.last = i;
       else periods.push({ key, first: i, last: i });
     }
-    return periods.map((p) => {
+    return periods.flatMap((p) => {
       const start = totalAt(p.first - 1);
       const end = totalAt(p.last);
+      // Without a starting and ending balance there's no performance to show.
+      if (start === null || end === null) return [];
       let contributions = 0;
       for (let i = p.first; i <= p.last; i++) contributions += contribAt(i);
       const gain = end - start - contributions;
       const partial = p.last === months.length - 1;
-      return {
+      return [{
         key: p.key,
         label:
           granularity === 'month'
@@ -244,7 +251,7 @@ export class DashboardPage {
         gain,
         /** Simple return on the starting balance plus half the money added mid-period. */
         returnPct: gain / (start + contributions / 2 || 1),
-      };
+      }];
     });
   }
 

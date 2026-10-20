@@ -1,29 +1,15 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
+import { DataSource } from './data-source';
+import { daysBetween, monthEnd, monthKeys } from './dates';
 import {
   Account,
   AccountSubtype,
   BillOccurrence,
   BudgetAdjustment,
-  GoalContribution,
+  BudgetPeriod,
   LifeKind,
   Transaction,
 } from './models';
-import {
-  ACCOUNTS,
-  AS_OF,
-  BILL_OCCURRENCES,
-  BUDGETS,
-  BUDGET_ADJUSTMENTS,
-  BUDGET_PERIODS,
-  CATEGORIES,
-  CSV_IMPORTS,
-  GOALS,
-  GOAL_CONTRIBUTIONS,
-  INSURANCE_POLICIES,
-  RECURRING_PAYMENTS,
-  TRANSACTIONS,
-} from './mock-data';
-import { budgetHistory, investmentHistory, monthKeys, netWorthHistory } from './history-mock';
 
 /** A completed import older than this many days means the account needs a fresh CSV. */
 export const IMPORT_STALE_DAYS = 30;
@@ -195,6 +181,14 @@ export interface TransactionRow extends Transaction {
   source: string | null;
 }
 
+export interface InvestmentMonth {
+  month: string;
+  /** Month-end balance; null when there's no snapshot yet. */
+  balance: number | null;
+  /** Money added during the month. */
+  contribution: number;
+}
+
 export interface BillRow {
   id: string;
   name: string;
@@ -220,10 +214,6 @@ export function goalViews(asOf: string): Record<string, { title: string; match: 
   };
 }
 
-const DAY_MS = 86_400_000;
-const daysBetween = (from: string, to: string) =>
-  Math.floor((Date.parse(to) - Date.parse(from)) / DAY_MS);
-
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export function goalStatus(saved: number, expected: number, target: number, pastDue: boolean): GoalStatus {
@@ -242,13 +232,18 @@ export function budgetStatus(ratio: number): BudgetStatus {
 
 @Injectable({ providedIn: 'root' })
 export class FinanceDataService {
-  readonly asOf = signal(AS_OF);
+  private readonly src = inject(DataSource);
+
+  /** Loading flag and request errors from the data source (e.g. API unreachable). */
+  readonly status = this.src.status;
+  readonly asOf = this.src.today;
 
   readonly accounts = computed<AccountRow[]>(() =>
-    ACCOUNTS.map((account) => {
-      const imports = CSV_IMPORTS.filter((i) => i.accountId === account.id).sort((a, b) =>
-        b.importedAt.localeCompare(a.importedAt),
-      );
+    this.src.accounts().map((account) => {
+      const imports = this.src
+        .csvImports()
+        .filter((i) => i.accountId === account.id)
+        .sort((a, b) => b.importedAt.localeCompare(a.importedAt));
       const lastCompleted = imports.find((i) => i.status === 'completed');
       let status: AccountStatus;
       if (imports[0]?.status === 'failed') status = 'failed';
@@ -267,11 +262,28 @@ export class FinanceDataService {
     }),
   );
 
-  readonly currentPeriod = computed(
-    () =>
-      BUDGET_PERIODS.find((p) => p.startDate <= this.asOf() && this.asOf() <= p.endDate) ??
-      BUDGET_PERIODS[0],
-  );
+  /**
+   * The monthly period containing today. When none has been created yet, a
+   * stand-in for the calendar month keeps the pages working (it has no id, so
+   * nothing is attached to it).
+   */
+  readonly currentPeriod = computed<BudgetPeriod>(() => {
+    const today = this.asOf();
+    const found = this.src
+      .budgetPeriods()
+      .find((p) => p.type === 'monthly' && p.startDate <= today && today <= p.endDate);
+    if (found) return found;
+    const month = today.slice(0, 7);
+    return {
+      id: '',
+      label: new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+        new Date(`${month}-01T00:00:00Z`),
+      ),
+      startDate: `${month}-01`,
+      endDate: monthEnd(month),
+      type: 'monthly',
+    };
+  });
 
   /** How far through the current period we are, 0..1. */
   readonly periodProgress = computed(() => {
@@ -287,48 +299,52 @@ export class FinanceDataService {
 
   readonly pendingBills = computed(
     () =>
-      BILL_OCCURRENCES.filter((b) => b.periodId === this.currentPeriod().id && b.status === 'pending')
-        .length,
+      this.src
+        .billOccurrences()
+        .filter((b) => b.periodId === this.currentPeriod().id && b.status === 'pending').length,
   );
 
-  /** Budget vs. actual for the current period; actuals are always summed from transactions. */
+  categoryName(id: string) {
+    return this.src.categories().find((c) => c.id === id)?.name ?? 'Uncategorized';
+  }
+
+  /** Budget vs. actual for the current period; actuals come from the budget-vs-actual report. */
   readonly budgets = computed<BudgetRow[]>(() => {
     const period = this.currentPeriod();
-    const spentByCategory = new Map<string, number>();
-    for (const t of TRANSACTIONS) {
-      if (t.type !== 'expense' || t.date < period.startDate || t.date > period.endDate) continue;
-      spentByCategory.set(t.categoryId, (spentByCategory.get(t.categoryId) ?? 0) + t.amount);
-    }
-    return BUDGETS.filter((b) => b.periodId === period.id).map((b) => {
-      const category = CATEGORIES.find((c) => c.id === b.categoryId);
-      const actual = Math.round((spentByCategory.get(b.categoryId) ?? 0) * 100) / 100;
-      const ratio = b.amount > 0 ? actual / b.amount : 0;
-      return {
-        id: b.id,
-        categoryName: category?.name ?? 'Uncategorized',
-        groupId: category?.parentId ?? null,
-        amount: b.amount,
-        originalAmount: b.originalAmount,
-        revision: b.revision,
-        actual,
-        remaining: b.amount - actual,
-        ratio,
-        status: budgetStatus(ratio),
-        adjustments: BUDGET_ADJUSTMENTS.filter((a) => a.budgetId === b.id),
-      };
-    });
+    const actuals = this.src.budgetActuals().filter((a) => a.periodId === period.id);
+    return this.src
+      .budgets()
+      .filter((b) => b.periodId === period.id)
+      .map((b) => {
+        const category = this.src.categories().find((c) => c.id === b.categoryId);
+        const actual = round2(actuals.find((a) => a.categoryId === b.categoryId)?.actual ?? 0);
+        const ratio = b.amount > 0 ? actual / b.amount : 0;
+        return {
+          id: b.id,
+          categoryName: category?.name ?? 'Uncategorized',
+          groupId: category?.parentId ?? null,
+          amount: b.amount,
+          originalAmount: b.originalAmount,
+          revision: b.revision,
+          actual,
+          remaining: b.amount - actual,
+          ratio,
+          status: budgetStatus(ratio),
+          adjustments: this.src.budgetAdjustments().filter((a) => a.budgetId === b.id),
+        };
+      });
   });
 
   readonly budgetGroups = computed(() =>
-    CATEGORIES.filter((c) => c.type === 'expense' && c.parentId === null),
+    this.src.categories().filter((c) => c.type === 'expense' && c.parentId === null),
   );
 
-  private readonly contributions = signal<GoalContribution[]>(GOAL_CONTRIBUTIONS);
+  readonly goalContributions = this.src.goalContributions;
 
   readonly goals = computed<GoalRow[]>(() => {
     const today = this.asOf();
-    return GOALS.map((g) => {
-      const own = this.contributions().filter((c) => c.goalId === g.id);
+    return this.src.goals().map((g) => {
+      const own = this.src.goalContributions().filter((c) => c.goalId === g.id);
       const saved = round2(own.reduce((t, c) => t + c.amount, 0));
       const totalDays = Math.max(1, daysBetween(g.startDate, g.targetDate));
       const elapsed = Math.min(totalDays, Math.max(0, daysBetween(g.startDate, today)));
@@ -347,12 +363,12 @@ export class FinanceDataService {
         targetDate: g.targetDate,
         expected,
         variance: round2(saved - expected),
-        progress: saved / g.targetAmount,
-        expectedProgress: expected / g.targetAmount,
+        progress: g.targetAmount > 0 ? saved / g.targetAmount : 0,
+        expectedProgress: g.targetAmount > 0 ? expected / g.targetAmount : 0,
         daysLeft,
         monthlyNeeded: daysLeft > 0 ? round2(remaining / monthsLeft) : remaining,
         status: goalStatus(saved, expected, g.targetAmount, daysLeft < 0),
-        accountId: [...byAccount].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ACCOUNTS[0].id,
+        accountId: [...byAccount].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '',
       };
     });
   });
@@ -365,30 +381,33 @@ export class FinanceDataService {
   /**
    * Re-earmarks money from one goal to another: a negative contribution on the
    * source and a positive one on the target, both against the source's account.
+   * Resolves false when the request isn't allowed; rejects if saving fails.
    */
-  divert(fromGoalId: string, toGoalId: string, amount: number) {
+  async divert(fromGoalId: string, toGoalId: string, amount: number): Promise<boolean> {
     const from = this.goals().find((g) => g.id === fromGoalId);
-    if (!from || fromGoalId === toGoalId || amount <= 0 || amount > this.surplus(from)) return false;
+    if (!from || !from.accountId || fromGoalId === toGoalId || amount <= 0 || amount > this.surplus(from)) {
+      return false;
+    }
     const date = this.asOf();
-    const stamp = Date.now();
-    this.contributions.update((list) => [
-      ...list,
-      { id: `gc-div-${stamp}-out`, goalId: fromGoalId, accountId: from.accountId, amount: -amount, date },
-      { id: `gc-div-${stamp}-in`, goalId: toGoalId, accountId: from.accountId, amount, date },
+    await this.src.addGoalContributions([
+      { goalId: fromGoalId, accountId: from.accountId, amount: -amount, date },
+      { goalId: toGoalId, accountId: from.accountId, amount, date },
     ]);
     return true;
   }
 
   readonly bills = computed<BillRow[]>(() =>
-    BILL_OCCURRENCES.filter((b) => b.periodId === this.currentPeriod().id)
+    this.src
+      .billOccurrences()
+      .filter((b) => b.periodId === this.currentPeriod().id)
       .map((b) => {
-        const payment = RECURRING_PAYMENTS.find((r) => r.id === b.recurringPaymentId);
-        const paidWith = TRANSACTIONS.find((t) => t.id === b.transactionId);
+        const payment = this.src.recurringPayments().find((r) => r.id === b.recurringPaymentId);
+        const paidWith = this.src.transactions().find((t) => t.id === b.transactionId);
         return {
           id: b.id,
           name: payment?.name ?? 'Unknown bill',
-          categoryName: CATEGORIES.find((c) => c.id === payment?.categoryId)?.name ?? '',
-          accountName: ACCOUNTS.find((a) => a.id === payment?.accountId)?.name ?? '',
+          categoryName: payment ? this.categoryName(payment.categoryId) : '',
+          accountName: this.src.accounts().find((a) => a.id === payment?.accountId)?.name ?? '',
           expectedAmount: b.expectedAmount,
           expectedDate: b.expectedDate,
           status: b.status,
@@ -415,21 +434,24 @@ export class FinanceDataService {
 
   /** Permanent life policies only: term has no cash value, so it isn't something you own. */
   readonly permanentPolicies = computed<PolicyRow[]>(() =>
-    INSURANCE_POLICIES.filter((p) => p.type === 'life' && p.lifeKind && p.lifeKind !== 'term').map((p) => ({
-      id: p.id,
-      name: p.name,
-      provider: p.provider,
-      kindLabel: LIFE_KIND_LABEL[p.lifeKind!],
-      cashValue: p.cashValue ?? 0,
-      cashValueAsOf: p.cashValueAsOf,
-      deathBenefit: p.deathBenefit,
-      premium: p.premium,
-      frequency: p.frequency,
-    })),
+    this.src
+      .insurancePolicies()
+      .filter((p) => p.type === 'life' && p.lifeKind && p.lifeKind !== 'term')
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        provider: p.provider,
+        kindLabel: LIFE_KIND_LABEL[p.lifeKind!],
+        cashValue: p.cashValue ?? 0,
+        cashValueAsOf: p.cashValueAsOf,
+        deathBenefit: p.deathBenefit,
+        premium: p.premium,
+        frequency: p.frequency,
+      })),
   );
 
   readonly termPolicies = computed(() =>
-    INSURANCE_POLICIES.filter((p) => p.type === 'life' && p.lifeKind === 'term'),
+    this.src.insurancePolicies().filter((p) => p.type === 'life' && p.lifeKind === 'term'),
   );
 
   /** Everything owned and owed, grouped like a personal balance sheet. */
@@ -475,35 +497,70 @@ export class FinanceDataService {
 
   // ------------------------------------------------------------- History
 
-  /** 'YYYY-MM' keys from the start of the history through the current month. */
-  readonly months = computed(() => monthKeys(this.asOf()));
-
-  /** Month-end balance and contributions per investment account. */
-  readonly investmentHistory = computed(() =>
-    this.investments().map((a) => ({ account: a, months: investmentHistory(a.id, a.balance, this.months()) })),
-  );
-
-  readonly netWorthHistory = computed(() => {
-    const sheet = this.balanceSheet();
-    const total = (keys: string[], side: SheetGroup[]) =>
-      side.filter((g) => keys.includes(g.key)).reduce((t, g) => t + g.total, 0);
-    const invested = this.months().map((_, i) =>
-      this.investmentHistory().reduce((t, h) => t + h.months[i].balance, 0),
-    );
-    return netWorthHistory(
-      this.months(),
-      {
-        cash: total(['cash'], sheet.owned),
-        insurance: total(['insurance'], sheet.owned),
-        property: total(['property'], sheet.owned),
-        cards: total(['cards'], sheet.owed),
-        loans: total(['loans'], sheet.owed),
-      },
-      invested,
-    );
+  /**
+   * 'YYYY-MM' keys from the earliest history row through the current month
+   * (at least the last 12 months, so charts have a stable axis).
+   */
+  readonly months = computed(() => {
+    const today = this.asOf();
+    const [y, m] = today.slice(0, 7).split('-').map(Number);
+    const yearAgo = `${m === 12 ? y : y - 1}-${String((m % 12) + 1).padStart(2, '0')}`;
+    const earliest = [
+      ...this.src.balanceSnapshots().map((s) => s.asOfDate),
+      ...this.src.netWorthSnapshots().map((s) => s.date),
+      ...this.src.budgetActuals().map((r) => r.periodStart),
+    ]
+      .map((d) => d.slice(0, 7))
+      .reduce((min, d) => (d < min ? d : min), yearAgo);
+    return monthKeys(today, earliest);
   });
 
-  /** Net worth now vs. the previous month-end. */
+  /**
+   * Month-end balance and contributions per investment account, from
+   * account_balance_snapshots; the current month uses the live balance.
+   */
+  readonly investmentHistory = computed(() => {
+    const months = this.months();
+    const current = months[months.length - 1];
+    const snapshots = this.src.balanceSnapshots();
+    return this.investments().map((account) => {
+      const own = snapshots
+        .filter((s) => s.accountId === account.id)
+        .sort((a, b) => a.asOfDate.localeCompare(b.asOfDate));
+      return {
+        account,
+        months: months.map<InvestmentMonth>((month) => {
+          const end = monthEnd(month);
+          const last = own.filter((s) => s.asOfDate <= end).at(-1);
+          return {
+            month,
+            balance: month === current ? account.balance : (last?.balance ?? null),
+            contribution: own
+              .filter((s) => s.asOfDate.startsWith(month))
+              .reduce((t, s) => t + (s.netContributions ?? 0), 0),
+          };
+        }),
+      };
+    });
+  });
+
+  /** Owned vs. owed per month from net_worth_snapshots, plus the current month live. */
+  readonly netWorthHistory = computed(() => {
+    const months = this.months();
+    const current = months[months.length - 1];
+    const snapshots = [...this.src.netWorthSnapshots()].sort((a, b) => a.date.localeCompare(b.date));
+    const sheet = this.balanceSheet();
+    return months
+      .map((month) => {
+        if (month === current) return { month, owned: sheet.totalOwned, owed: sheet.totalOwed };
+        const snap = snapshots.filter((s) => s.date.startsWith(month)).at(-1);
+        const parts = parseBreakdown(snap?.breakdown ?? null);
+        return parts ? { month, ...parts } : null;
+      })
+      .filter((r): r is { month: string; owned: number; owed: number } => r !== null);
+  });
+
+  /** Net worth now vs. the previous month-end snapshot. */
   readonly netWorthChange = computed(() => {
     const history = this.netWorthHistory();
     const prev = history[history.length - 2];
@@ -512,51 +569,51 @@ export class FinanceDataService {
     return { month: prev.month, value: prevValue, change: round2(this.balanceSheet().netWorth - prevValue) };
   });
 
-  /** Budget vs. actual per category per month; the current month is live (to date). */
-  readonly budgetHistory = computed(() => {
-    const current = this.currentPeriod().startDate.slice(0, 7);
-    const past = this.months().filter((m) => m < current);
-    const plan = BUDGETS.filter((b) => b.periodId === this.currentPeriod().id).map((b) => ({
-      categoryId: b.categoryId,
-      amount: b.originalAmount,
-    }));
-    return [
-      ...budgetHistory(past, plan),
-      ...this.budgets().map((b) => ({
-        month: current,
-        categoryId: BUDGETS.find((x) => x.id === b.id)!.categoryId,
-        budgeted: b.amount,
-        actual: b.actual,
-      })),
-    ];
-  });
-
-  readonly goalContributions = this.contributions.asReadonly();
-
-  categoryName(id: string) {
-    return CATEGORIES.find((c) => c.id === id)?.name ?? 'Uncategorized';
-  }
+  /** Budget vs. actual per category per month. */
+  readonly budgetHistory = computed(() =>
+    this.src.budgetActuals().map((r) => ({
+      month: r.periodStart.slice(0, 7),
+      categoryId: r.categoryId,
+      budgeted: r.budgeted,
+      actual: r.actual,
+    })),
+  );
 
   // -------------------------------------------------------- Transactions
 
-  readonly transactions = computed<TransactionRow[]>(() =>
-    TRANSACTIONS.map((t) => {
-      const account = ACCOUNTS.find((a) => a.id === t.accountId);
-      const imp = CSV_IMPORTS.find((i) => i.id === t.csvImportId);
-      return {
+  readonly transactions = computed<TransactionRow[]>(() => {
+    const accounts = this.src.accounts();
+    const imports = this.src.csvImports();
+    return this.src
+      .transactions()
+      .map((t) => ({
         ...t,
-        accountName: account?.name ?? '',
+        accountName: accounts.find((a) => a.id === t.accountId)?.name ?? '',
         categoryName: this.categoryName(t.categoryId),
         /** Signed: money in is positive, money out negative. */
         signedAmount: t.type === 'income' ? t.amount : t.type === 'expense' ? -t.amount : t.amount,
-        source: imp ? imp.filename : null,
-      };
-    }).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id)),
-  );
+        source: imports.find((i) => i.id === t.csvImportId)?.filename ?? null,
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  });
 
-  readonly csvImports = computed(() =>
-    [...CSV_IMPORTS]
+  readonly csvImports = computed(() => {
+    const accounts = this.src.accounts();
+    return [...this.src.csvImports()]
       .sort((a, b) => b.importedAt.localeCompare(a.importedAt))
-      .map((i) => ({ ...i, accountName: ACCOUNTS.find((a) => a.id === i.accountId)?.name ?? '' })),
-  );
+      .map((i) => ({ ...i, accountName: accounts.find((a) => a.id === i.accountId)?.name ?? '' }));
+  });
+}
+
+/** Reads {"owned": n, "owed": n} from a snapshot's breakdown JSON; null if missing or malformed. */
+function parseBreakdown(json: string | null): { owned: number; owed: number } | null {
+  if (!json) return null;
+  try {
+    const value = JSON.parse(json);
+    return typeof value?.owned === 'number' && typeof value?.owed === 'number'
+      ? { owned: value.owned, owed: value.owed }
+      : null;
+  } catch {
+    return null;
+  }
 }

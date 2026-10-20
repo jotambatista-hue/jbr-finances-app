@@ -1,8 +1,16 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { budgetStatus, FinanceDataService, goalStatus } from './core/finance-data.service';
 import { niceTicks } from './shared/chart';
+import { DataSource } from './core/data-source';
+import { MockDataSource } from './core/mock-data-source';
+
+// Every test runs against the built-in sample data, pinned to Oct 19, 2026.
+beforeEach(() => {
+  TestBed.configureTestingModule({ providers: [{ provide: DataSource, useClass: MockDataSource }] });
+});
 
 describe('App', () => {
   beforeEach(async () => {
@@ -67,23 +75,23 @@ describe('goalStatus', () => {
 });
 
 describe('FinanceDataService goals', () => {
-  it('diverts surplus from an ahead goal to one that is behind', () => {
+  it('diverts surplus from an ahead goal to one that is behind', async () => {
     const data = TestBed.inject(FinanceDataService);
     const japan = () => data.goals().find((g) => g.id === 'goal-japan')!;
     const gifts = () => data.goals().find((g) => g.id === 'goal-gifts')!;
     expect(japan().status).toBe('ahead');
     expect(gifts().status).toBe('behind');
 
-    expect(data.divert('goal-japan', 'goal-gifts', 200)).toBe(true);
+    expect(await data.divert('goal-japan', 'goal-gifts', 200)).toBe(true);
     expect(japan().saved).toBe(4000);
     expect(gifts().saved).toBe(720);
     expect(gifts().status).toBe('on_track');
   });
 
-  it('refuses to divert more than the surplus', () => {
+  it('refuses to divert more than the surplus', async () => {
     const data = TestBed.inject(FinanceDataService);
-    expect(data.divert('goal-japan', 'goal-car', 5000)).toBe(false);
-    expect(data.divert('goal-car', 'goal-gifts', 10)).toBe(false);
+    expect(await data.divert('goal-japan', 'goal-car', 5000)).toBe(false);
+    expect(await data.divert('goal-car', 'goal-gifts', 10)).toBe(false);
   });
 
   it('lists only the current period bills', () => {
@@ -105,6 +113,7 @@ describe('FinanceDataService history', () => {
     const data = TestBed.inject(FinanceDataService);
     for (const { account, months } of data.investmentHistory()) {
       expect(months.at(-1)!.balance).toBeCloseTo(account.balance, 2);
+      expect(months[0].balance).not.toBeNull();
     }
   });
 
@@ -124,5 +133,38 @@ describe('FinanceDataService history', () => {
     const rows = TestBed.inject(FinanceDataService).transactions();
     expect(rows.find((t) => t.accountId === 'acc-chk')?.source).toBe('chase_checking_2026-10.csv');
     expect(rows.find((t) => t.accountId === 'acc-csh')?.source).toBeNull();
+  });
+});
+
+describe('FinanceDataService with no data', () => {
+  class EmptySource extends MockDataSource {
+    override readonly accounts = signal([]);
+    override readonly budgetPeriods = signal([]);
+    override readonly budgets = signal([]);
+    override readonly budgetActuals = signal([]);
+    override readonly goals = signal([]);
+    override readonly billOccurrences = signal([]);
+    override readonly netWorthSnapshots = signal([]);
+    override readonly balanceSnapshots = signal([]);
+    override readonly insurancePolicies = signal([]);
+  }
+
+  it('falls back to the calendar month and renders empty states without throwing', () => {
+    TestBed.configureTestingModule({ providers: [{ provide: DataSource, useClass: EmptySource }] });
+    const data = TestBed.inject(FinanceDataService);
+    expect(data.currentPeriod()).toMatchObject({ id: '', startDate: '2026-10-01', endDate: '2026-10-31' });
+    expect(data.budgets()).toEqual([]);
+    expect(data.balanceSheet().netWorth).toBe(0);
+    expect(data.netWorthChange()).toBeNull();
+    expect(data.investmentHistory()).toEqual([]);
+  });
+
+  it('renders the dashboard with no data', async () => {
+    TestBed.configureTestingModule({ providers: [{ provide: DataSource, useClass: EmptySource }] });
+    const { DashboardPage } = await import('./features/dashboard/dashboard-page');
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const fixture = TestBed.createComponent(DashboardPage);
+    await fixture.whenStable();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No goals yet.');
   });
 });

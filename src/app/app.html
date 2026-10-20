@@ -118,6 +118,17 @@
   </aside>
 
   <main class="canvas">
+    @if (status().errors; as errors) {
+      @if (errors.length) {
+        <div class="api-banner" role="alert">
+          <app-icon name="alert" />
+          <div>
+            <strong>Some data couldn’t be loaded</strong>
+            <span>{{ errors[0] }}@if (errors.length > 1) { (and {{ errors.length - 1 }} more)}</span>
+          </div>
+        </div>
+      }
+    }
     <router-outlet />
   </main>
 </div>

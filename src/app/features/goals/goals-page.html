@@ -217,9 +217,13 @@
         <small>Up to {{ divertMax() | currency: 'USD' : 'symbol' : '1.0-0' }}</small>
       </label>
 
+      @if (divertError(); as error) {
+        <p class="form-error" role="alert">{{ error }}</p>
+      }
+
       <div class="dialog-actions">
         <button class="btn btn-ghost" type="button" (click)="closeDivert()">Cancel</button>
-        <button class="btn btn-primary" type="submit" [disabled]="!divertValid()">Divert {{ divertAmount() | currency: 'USD' : 'symbol' : '1.0-0' }}</button>
+        <button class="btn btn-primary" type="submit" [disabled]="!divertValid() || divertSaving()">Divert {{ divertAmount() | currency: 'USD' : 'symbol' : '1.0-0' }}</button>
       </div>
     </form>
   }

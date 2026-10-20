@@ -110,6 +110,7 @@ export class GoalsPage {
   );
 
   protected openDivert(g: GoalRow) {
+    this.divertError.set(null);
     this.divertFrom.set(g);
     const target = this.divertTargets()[0];
     this.divertTo.set(target?.id ?? '');
@@ -128,10 +129,24 @@ export class GoalsPage {
     return gap > 0 ? Math.min(gap, this.divertMax()) : this.divertMax();
   }
 
-  protected confirmDivert() {
+  protected readonly divertError = signal<string | null>(null);
+  protected readonly divertSaving = signal(false);
+
+  protected async confirmDivert() {
     const from = this.divertFrom();
-    if (from && this.data.divert(from.id, this.divertTo(), this.divertAmount())) {
-      this.dialog().nativeElement.close();
+    if (!from || this.divertSaving()) return;
+    this.divertSaving.set(true);
+    this.divertError.set(null);
+    try {
+      if (await this.data.divert(from.id, this.divertTo(), this.divertAmount())) {
+        this.dialog().nativeElement.close();
+      } else {
+        this.divertError.set('That amount can’t be moved from this goal.');
+      }
+    } catch {
+      this.divertError.set('Couldn’t save the change. Check that the API is running and try again.');
+    } finally {
+      this.divertSaving.set(false);
     }
   }
 
